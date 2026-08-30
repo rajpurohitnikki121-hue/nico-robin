@@ -149,7 +149,7 @@ func (f *FallenApiPlatform) getDownloadURL(
 		)
 	}
 
-	if resp.IsError() {
+	if resp.IsStatusFailure() {
 		err = sanitizeAPIError(fmt.Errorf(
 			"failed to download %s, api request failed with status: %d body: %s",
 			mediaURL,
@@ -179,7 +179,8 @@ func (f *FallenApiPlatform) downloadFromURL(
 ) error {
 	resp, err := rc.R().
 		SetContext(ctx).
-		SetOutputFileName(path).
+		SetResponseSaveToFile(true).
+		SetResponseSaveFileName(path).
 		Get(dlURL)
 	if err != nil {
 		os.Remove(path)
@@ -190,7 +191,7 @@ func (f *FallenApiPlatform) downloadFromURL(
 		return fmt.Errorf("http download failed: %w", err)
 	}
 
-	if resp.IsError() {
+	if resp.IsStatusFailure() {
 		return fmt.Errorf("download failed with status: %d", resp.StatusCode())
 	}
 
