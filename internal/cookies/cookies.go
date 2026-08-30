@@ -107,7 +107,7 @@ func downloadCookieFile(url string) error {
 		return err
 	}
 
-	if resp.IsError() {
+	if resp.IsStatusFailure() {
 		return fmt.Errorf(
 			"unexpected status %d from %s",
 			resp.StatusCode(),
