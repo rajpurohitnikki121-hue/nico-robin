@@ -886,9 +886,8 @@ spt_result: |
 
   <b><u>⚡ Speed</u></b>
   Download: <code>{dl_mbps} Mbps</code>
-  Upload: <code>{ul_mbps} Mbps</code>
-
-start_private: "Hello {user}, My name is {bot}.\n\nI'm a telegram streaming bot with some useful features. Supporting platforms like Youtube, Spotify, JioSaavn, Soundcloud etc.\n\nFeel free to add me to your groups."
+  Upload: <code>{ul_mbps} Mbps</co
+start_private: "🌿 𝐇𝐞𝐲, {user} ♡\n\n🎵 𐙚 {bot} ᥫ᭡\n\n🎧 𝐄𝐧𝐣𝐨𝐲 𝐬𝐦𝐨𝐨𝐭𝐡, 𝐡𝐢𝐠𝐡-𝐪𝐮𝐚𝐥𝐢𝐭𝐲 𝐦𝐮𝐬𝐢𝐜 𝐰𝐢𝐭𝐡 𝐚 𝐬𝐢𝐦𝐩𝐥𝐞 𝐚𝐧𝐝 𝐜𝐥𝐞𝐚𝐧 𝐞𝐱𝐩𝐞𝐫𝐢𝐞𝐧𝐜𝐞.\n\n✦ 𝐓𝐚𝐩 𝐇𝐞𝐥𝐩 𝐭𝐨 𝐞𝐱𝐩𝐥𝐨𝐫𝐞 𝐦𝐲 𝐟𝐞𝐚𝐭𝐮𝐫𝐞𝐬 ♡"
 
 start_group: "<b>💫 I’m here!</b> Try a command… if you think you can handle me 😉"
 
