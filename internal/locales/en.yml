@@ -886,8 +886,9 @@ spt_result: |
 
   <b><u>⚡ Speed</u></b>
   Download: <code>{dl_mbps} Mbps</code>
-  Upload: <code>{ul_mbps} Mbps</co
-start_private: "🌿 𝐇𝐞𝐲, {user} ♡\n\n🎵 𐙚 {bot} ᥫ᭡\n\n🎧 𝐄𝐧𝐣𝐨𝐲 𝐬𝐦𝐨𝐨𝐭𝐡, 𝐡𝐢𝐠𝐡-𝐪𝐮𝐚𝐥𝐢𝐭𝐲 𝐦𝐮𝐬𝐢𝐜 𝐰𝐢𝐭𝐡 𝐚 𝐬𝐢𝐦𝐩𝐥𝐞 𝐚𝐧𝐝 𝐜𝐥𝐞𝐚𝐧 𝐞𝐱𝐩𝐞𝐫𝐢𝐞𝐧𝐜𝐞.\n\n✦ 𝐓𝐚𝐩 𝐇𝐞𝐥𝐩 𝐭𝐨 𝐞𝐱𝐩𝐥𝐨𝐫𝐞 𝐦𝐲 𝐟𝐞𝐚𝐭𝐮𝐫𝐞𝐬 ♡"
+  Upload: <code>{ul_mbps} Mbps</code>
+
+start_private: "👋🏻 𝐇𝐞𝐲, {user} ♡\n\n🌸 𐙚 {bot} ᥫ᭡\n\n🎧 𝐄𝐧𝐣𝐨𝐲 𝐬𝐦𝐨𝐨𝐭𝐡, 𝐡𝐢𝐠𝐡-𝐪𝐮𝐚𝐥𝐢𝐭𝐲 𝐦𝐮𝐬𝐢𝐜 𝐰𝐢𝐭𝐡 𝐚 𝐬𝐢𝐦𝐩𝐥𝐞 𝐚𝐧𝐝 𝐜𝐥𝐞𝐚𝐧 𝐞𝐱𝐩𝐞𝐫𝐢𝐞𝐧𝐜𝐞.\n\n✦ 𝐓𝐚𝐩 𝐇𝐞𝐥𝐩 𝐭𝐨 𝐞𝐱𝐩𝐥𝐨𝐫𝐞 𝐦𝐲 𝐟𝐞𝐚𝐭𝐮𝐫𝐞𝐬 ♡"
 
 start_group: "<b>💫 I’m here!</b> Try a command… if you think you can handle me 😉"
 
@@ -1015,3 +1016,22 @@ help_public: |
   <b>/json</b> - Show message JSON structure
   <b>/sudolist</b> - View sudo user list
   </blockquote>
+
+# 🎶 Personal Playlist System (new — appended, no existing keys changed)
+playlist_name_required: "⚠️ Please provide a playlist name.\nExample: <code>{cmd} My Favourites</code>"
+playlist_song_name_required: "⚠️ Please provide a song name to remove.\nExample: <code>{cmd} Sanam Re</code>"
+playlist_limit_reached: "⚠️ You've reached the maximum of <b>{limit}</b> playlists. Delete one before creating another."
+playlist_already_exists: "⚠️ You already have a playlist named <b>{name}</b>."
+playlist_created: "✅ Playlist <b>{name}</b> created and set as your current playlist."
+playlist_none_selected: "⚠️ You don't have a current playlist. Create one first with <code>/createplaylist [name]</code>."
+playlist_song_limit_reached: "⚠️ This playlist has reached the maximum of <b>{limit}</b> songs."
+playlist_song_added: "✅ Added <b>{title}</b> to your current playlist."
+playlist_not_found: "⚠️ No playlist named <b>{name}</b> found."
+playlist_empty: "⚠️ Playlist <b>{name}</b> has no songs yet."
+playlist_play_failed: "❌ Failed to queue any songs from this playlist."
+playlist_playing: "🎶 <b>Playing playlist:</b> {name}\n▫ Songs queued: {count}\n▫ Started by: {by}"
+playlist_none_yet: "ℹ️ You don't have any playlists yet. Create one with <code>/createplaylist [name]</code>."
+playlist_list_header: "🎶 <b>Your Playlists:</b>"
+playlist_current_line: "<b>Current playlist:</b> {name}"
+playlist_song_not_found: "⚠️ No song matching <b>{title}</b> found in your current playlist."
+playlist_song_removed: "✅ Removed <b>{title}</b> from your current playlist."
