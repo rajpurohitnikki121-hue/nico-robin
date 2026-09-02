@@ -490,6 +490,33 @@ var handlers = []MsgHandlerDef{
 		Handler: privacyHandler,
 		Filters: []telegram.Filter{ignoreChannelFilter},
 	},
+
+	// Personal Playlist commands (new)
+	{
+		Pattern: "createplaylist",
+		Handler: createPlaylistHandler,
+		Filters: []telegram.Filter{ignoreChannelFilter},
+	},
+	{
+		Pattern: "addplaylist",
+		Handler: addPlaylistHandler,
+		Filters: []telegram.Filter{ignoreChannelFilter},
+	},
+	{
+		Pattern: "playlist",
+		Handler: playlistHandler,
+		Filters: []telegram.Filter{superGroupFilter},
+	},
+	{
+		Pattern: "myplaylist",
+		Handler: myPlaylistHandler,
+		Filters: []telegram.Filter{ignoreChannelFilter},
+	},
+	{
+		Pattern: "removeplaylist",
+		Handler: removePlaylistHandler,
+		Filters: []telegram.Filter{ignoreChannelFilter},
+	},
 }
 
 var cbHandlers = []CbHandlerDef{
