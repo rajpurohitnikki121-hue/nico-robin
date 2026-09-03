@@ -176,8 +176,9 @@ func RemoveSongFromPlaylist(userID int64, title string) error {
 	}
 
 	idx := -1
+	lowerTitle := strings.ToLower(title)
 	for i, s := range pl.Songs {
-		if strings.EqualFold(s.Title, title) {
+		if strings.Contains(strings.ToLower(s.Title), lowerTitle) {
 			idx = i
 			break
 		}
