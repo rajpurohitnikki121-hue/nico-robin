@@ -26,6 +26,7 @@
 package modules
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -207,13 +208,14 @@ func playlistHandler(m *tg.NewMessage) error {
 	}
 
 	mention := utils.MentionHTML(m.Sender)
+	isActive := room.IsActiveChat()
 	added := 0
 
 	// Songs are played in the exact order they were saved. Each call reuses
 	// the SAME room.Play() the /play command uses, so tracks land in the
 	// existing queue — no separate playlist queue/player is created, and
 	// /skip continues to work without any playlist-specific logic.
-	for _, s := range pl.Songs {
+	for i, s := range pl.Songs {
 		if len(room.Queue()) >= config.QueueLimit {
 			break
 		}
@@ -225,10 +227,28 @@ func playlistHandler(m *tg.NewMessage) error {
 			Source:    state.PlatformName(s.Source),
 			Requester: mention,
 		}
-		if err := room.Play(track, "", false); err != nil {
+
+		// Just like /play: when the room is idle, the first track must be
+		// downloaded up front so playback actually starts. Later tracks are
+		// queued with an empty path — the existing queue-advance system
+		// downloads them automatically when their turn comes.
+		filePath := ""
+		if i == 0 && !isActive {
+			path, dlErr := platforms.Download(context.Background(), track, m)
+			if dlErr != nil {
+				continue
+			}
+			filePath = path
+		}
+
+		if err := room.Play(track, filePath, false); err != nil {
 			continue
 		}
 		added++
+
+		// Mirrors play.go's sendPlayLogs call so playlist tracks show up in
+		// the logger chat exactly like normal /play tracks do.
+		sendPlayLogs(m, track, isActive || i > 0)
 	}
 
 	if added == 0 {
