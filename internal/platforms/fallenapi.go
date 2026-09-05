@@ -7,12 +7,6 @@
  * This program is free software: you can redistribute it and/or modify it under the
  * terms of the GNU General Public License as published by the Free Software Foundation,
  * either version 3 of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
- * PARTICULAR PURPOSE. See the GNU General Public License for more details.
- *
- * Repository: https://github.com/TheTeamVivek/YukkiMusic
  */
 
 package platforms
@@ -25,6 +19,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/Laky-64/gologging"
 	"github.com/amarnathcjd/gogram/telegram"
@@ -40,10 +35,6 @@ var telegramDLRegex = regexp.MustCompile(
 )
 
 const PlatformFallenApi state.PlatformName = "FallenApi"
-
-type apiResponse struct {
-	CdnUrl string `json:"cdnurl"`
-}
 
 type FallenApiPlatform struct {
 	name state.PlatformName
@@ -76,6 +67,7 @@ func (f *FallenApiPlatform) CanDownload(
 	if config.FallenAPIURL == "" || config.FallenAPIKey == "" {
 		return false
 	}
+
 	return source == PlatformYouTube
 }
 
@@ -84,7 +76,8 @@ func (f *FallenApiPlatform) Download(
 	track *state.Track,
 	statusMsg *telegram.NewMessage,
 ) (string, error) {
-	// fallen api didn't support video downloads so disable it
+
+	// Meow API audio endpoint
 	track.Video = false
 
 	if f := findFile(track); f != "" {
@@ -105,6 +98,7 @@ func (f *FallenApiPlatform) Download(
 	path := getPath(track, ".mp3")
 
 	var downloadErr error
+
 	if telegramDLRegex.MatchString(dlURL) {
 		path, downloadErr = f.downloadFromTelegram(ctx, dlURL, path, pm)
 	} else {
@@ -114,85 +108,122 @@ func (f *FallenApiPlatform) Download(
 	if downloadErr != nil {
 		return "", downloadErr
 	}
+
 	if !fileExists(path) {
 		return "", errors.New("empty file returned by API")
 	}
+
 	return path, nil
 }
 
+// getDownloadURL creates a Meow API stream URL.
+//
+// Meow API format:
+// https://music.yukiapi.site/stream/{video_id}?key=API_KEY&type=audio&quality=128
 func (f *FallenApiPlatform) getDownloadURL(
 	ctx context.Context,
 	mediaURL string,
 ) (string, error) {
-	apiReqURL := fmt.Sprintf(
-		"%s/api/track?api_key=%s&url=%s",
-		config.FallenAPIURL,
-		config.FallenAPIKey,
-		url.QueryEscape(mediaURL),
+
+	videoID, err := extractYouTubeVideoID(mediaURL)
+	if err != nil {
+		return "", err
+	}
+
+	apiBase := strings.TrimRight(config.FallenAPIURL, "/")
+
+	streamURL := fmt.Sprintf(
+		"%s/stream/%s?key=%s&type=audio&quality=128",
+		apiBase,
+		url.PathEscape(videoID),
+		url.QueryEscape(config.FallenAPIKey),
 	)
 
-	var apiResp apiResponse
+	gologging.Debug("Meow API: requesting stream for YouTube video " + videoID)
 
-	resp, err := rc.R().
-		SetContext(ctx).
-		SetResult(&apiResp).
-		Get(apiReqURL)
+	// Check request context before returning URL.
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	default:
+	}
+
+	return streamURL, nil
+}
+
+// extractYouTubeVideoID extracts the video ID from common YouTube URLs.
+func extractYouTubeVideoID(mediaURL string) (string, error) {
+
+	parsed, err := url.Parse(mediaURL)
 	if err != nil {
-		if errors.Is(err, context.Canceled) ||
-			errors.Is(err, context.DeadlineExceeded) {
-			return "", err
+		return "", fmt.Errorf("invalid YouTube URL: %w", err)
+	}
+
+	host := strings.ToLower(parsed.Hostname())
+
+	// youtube.com/watch?v=VIDEO_ID
+	if host == "youtube.com" ||
+		host == "www.youtube.com" ||
+		host == "m.youtube.com" {
+
+		if videoID := parsed.Query().Get("v"); videoID != "" {
+			return videoID, nil
 		}
 
-		return "", fmt.Errorf(
-			"failed to download %s, api request failed: %w", mediaURL,
-			sanitizeAPIError(err, config.FallenAPIKey),
-		)
+		// youtube.com/shorts/VIDEO_ID
+		// youtube.com/embed/VIDEO_ID
+		pathParts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+
+		if len(pathParts) >= 2 &&
+			(pathParts[0] == "shorts" || pathParts[0] == "embed") {
+			return pathParts[1], nil
+		}
 	}
 
-	if resp.IsStatusFailure() {
-		err = sanitizeAPIError(fmt.Errorf(
-			"failed to download %s, api request failed with status: %d body: %s",
-			mediaURL,
-			resp.StatusCode(),
-			resp.String(),
-		), config.FallenAPIKey)
-		gologging.Error(err.Error())
-		return "", err
+	// youtu.be/VIDEO_ID
+	if host == "youtu.be" {
+		videoID := strings.Trim(parsed.Path, "/")
+
+		if videoID != "" {
+			return videoID, nil
+		}
 	}
 
-	if apiResp.CdnUrl == "" {
-		err = sanitizeAPIError(fmt.Errorf(
-			"failed to download %s, empty API response body: %s",
-			mediaURL,
-			resp.String(),
-		), config.FallenAPIKey)
-		gologging.Error(err.Error())
-		return "", err
-	}
-
-	return apiResp.CdnUrl, nil
+	return "", fmt.Errorf(
+		"could not extract YouTube video ID from URL: %s",
+		mediaURL,
+	)
 }
 
 func (f *FallenApiPlatform) downloadFromURL(
 	ctx context.Context,
 	dlURL, path string,
 ) error {
+
 	resp, err := rc.R().
 		SetContext(ctx).
 		SetResponseSaveToFile(true).
 		SetResponseSaveFileName(path).
 		Get(dlURL)
+
 	if err != nil {
 		os.Remove(path)
+
 		if errors.Is(err, context.Canceled) ||
 			errors.Is(err, context.DeadlineExceeded) {
 			return err
 		}
+
 		return fmt.Errorf("http download failed: %w", err)
 	}
 
 	if resp.IsStatusFailure() {
-		return fmt.Errorf("download failed with status: %d", resp.StatusCode())
+		os.Remove(path)
+		return fmt.Errorf(
+			"download failed with status: %d body: %s",
+			resp.StatusCode(),
+			resp.String(),
+		)
 	}
 
 	return nil
@@ -203,33 +234,53 @@ func (f *FallenApiPlatform) downloadFromTelegram(
 	dlURL, path string,
 	pm *telegram.ProgressManager,
 ) (string, error) {
+
 	matches := telegramDLRegex.FindStringSubmatch(dlURL)
+
 	if len(matches) < 3 {
-		return "", fmt.Errorf("invalid telegram download url: %s", dlURL)
+		return "", fmt.Errorf(
+			"invalid telegram download url: %s",
+			dlURL,
+		)
 	}
 
 	username := matches[1]
+
 	messageID, err := strconv.Atoi(matches[2])
 	if err != nil {
-		return "", fmt.Errorf("invalid message ID: %v", err)
+		return "", fmt.Errorf(
+			"invalid message ID: %v",
+			err,
+		)
 	}
 
-	msg, err := core.Bot.GetMessageByID(username, int32(messageID))
+	msg, err := core.Bot.GetMessageByID(
+		username,
+		int32(messageID),
+	)
+
 	if err != nil {
-		return "", fmt.Errorf("failed to fetch Telegram message: %w", err)
+		return "", fmt.Errorf(
+			"failed to fetch Telegram message: %w",
+			err,
+		)
 	}
 
 	dOpts := &telegram.DownloadOptions{
 		FileName: path,
 		Ctx:      ctx,
 	}
+
 	if pm != nil {
 		dOpts.ProgressManager = pm
 	}
+
 	_, err = msg.Download(dOpts)
+
 	if err != nil {
 		os.Remove(path)
 		return "", err
 	}
+
 	return path, nil
 }
