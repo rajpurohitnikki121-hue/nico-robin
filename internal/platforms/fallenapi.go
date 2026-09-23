@@ -252,6 +252,8 @@ func (f *FallenApiPlatform) downloadFromURL(
 
 	resp, err := rc.R().
 		SetContext(ctx).
+		SetHeader("X-API-Key", config.FallenAPIKey).
+		SetHeader("Authorization", "Bearer "+config.FallenAPIKey).
 		SetResponseSaveToFile(true).
 		SetResponseSaveFileName(path).
 		Get(dlURL)
