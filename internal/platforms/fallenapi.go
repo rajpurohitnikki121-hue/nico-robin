@@ -13,7 +13,6 @@ package platforms
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -117,25 +116,11 @@ func (f *FallenApiPlatform) Download(
 	return path, nil
 }
 
-// yukiDownloadResponse mirrors the JSON body returned by Meow/Yuki
-// API's GET /download endpoint: {"status":"success","video_id":"...","download_token":"..."}
-type yukiDownloadResponse struct {
-	VideoID       string `json:"video_id"`
-	DownloadToken string `json:"download_token"`
-}
-
-// getDownloadURL resolves a Meow/Yuki API stream URL.
+// getDownloadURL builds the Meow API V2.0 stream URL.
 //
-// Meow/Yuki API is a TWO-STEP flow, not a single direct-key stream URL:
-//  1. GET {apiBase}/download?url=<youtube_url>&type=audio
-//     -> JSON {"video_id":"...","download_token":"..."}
-//  2. GET {apiBase}/stream/{video_id}?token=<download_token>&type=audio
-//     -> the actual audio bytes
+// V2.0 has no /download step anymore. Audio is streamed directly:
 //
-// NOTE: our own extracted videoID is used to build the stream URL
-// rather than the "video_id" the API echoes back in step 1 — that
-// field has been observed to sometimes echo an unrelated previous
-// request's ID, which would download the wrong song.
+//	GET {apiBase}/stream/{video_id}?key=KEY
 func (f *FallenApiPlatform) getDownloadURL(
 	ctx context.Context,
 	mediaURL string,
@@ -148,55 +133,20 @@ func (f *FallenApiPlatform) getDownloadURL(
 
 	apiBase := strings.TrimRight(config.FallenAPIURL, "/")
 
-	// Step 1: resolve a download_token.
-	resolveResp, err := rc.R().
-		SetContext(ctx).
-		SetQueryParam("url", mediaURL).
-		SetQueryParam("type", "audio").
-		SetHeader("X-API-Key", config.FallenAPIKey).
-		SetHeader("Authorization", "Bearer "+config.FallenAPIKey).
-		Get(apiBase + "/download")
-
-	if err != nil {
-		if errors.Is(err, context.Canceled) ||
-			errors.Is(err, context.DeadlineExceeded) {
-			return "", err
-		}
-		return "", fmt.Errorf("meow api /download request failed: %w", err)
-	}
-
-	if resolveResp.IsStatusFailure() {
-		return "", fmt.Errorf(
-			"meow api /download failed with status: %d body: %s",
-			resolveResp.StatusCode(),
-			resolveResp.String(),
-		)
-	}
-
-	var result yukiDownloadResponse
-	if err := json.Unmarshal(resolveResp.Bytes(), &result); err != nil {
-		return "", fmt.Errorf("meow api /download returned invalid json: %w", err)
-	}
-
-	if result.DownloadToken == "" {
-		return "", fmt.Errorf("meow api /download response missing download_token")
-	}
-
-	// Step 2: build the stream URL using OUR videoID + their token.
-	streamURL := fmt.Sprintf(
-		"%s/stream/%s?token=%s&type=audio",
-		apiBase,
-		url.PathEscape(videoID),
-		url.QueryEscape(result.DownloadToken),
-	)
-
-	gologging.Debug("Meow API: requesting stream for YouTube video " + videoID)
-
 	select {
 	case <-ctx.Done():
 		return "", ctx.Err()
 	default:
 	}
+
+	streamURL := fmt.Sprintf(
+		"%s/stream/%s?key=%s",
+		apiBase,
+		url.PathEscape(videoID),
+		url.QueryEscape(config.FallenAPIKey),
+	)
+
+	gologging.Debug("Meow API V2: requesting stream for YouTube video " + videoID)
 
 	return streamURL, nil
 }
