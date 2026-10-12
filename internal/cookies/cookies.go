@@ -105,7 +105,7 @@ func downloadCookieFile(url string) error {
 		return err
 	}
 
-	if resp.IsStatusFailure() {
+	if resp.StatusCode() < 200 || resp.StatusCode() >= 300 {
 		return fmt.Errorf(
 			"unexpected status %d from %s",
 			resp.StatusCode(),
@@ -113,7 +113,7 @@ func downloadCookieFile(url string) error {
 		)
 	}
 
-	if err := os.WriteFile(filePath, resp.Body(), 0o600); err != nil {
+	if err := os.WriteFile(filePath, resp.Body, 0o600); err != nil {
 		return err
 	}
 
