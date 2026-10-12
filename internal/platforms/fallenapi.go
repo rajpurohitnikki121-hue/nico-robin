@@ -13,6 +13,7 @@ package platforms
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -77,7 +78,7 @@ func (f *FallenApiPlatform) Download(
 	statusMsg *telegram.NewMessage,
 ) (string, error) {
 
-	// Meow API audio endpoint
+	// Audio only.
 	track.Video = false
 
 	if f := findFile(track); f != "" {
@@ -116,22 +117,102 @@ func (f *FallenApiPlatform) Download(
 	return path, nil
 }
 
-// getDownloadURL builds the Meow API V2.0 stream URL.
+// oneGrabTrackResponse mirrors the JSON returned by OneGrab's
+// GET /api/track endpoint.
+type oneGrabTrackResponse struct {
+	ID       string `json:"id"`
+	URL      string `json:"url"`
+	CDNURL   string `json:"cdnurl"`
+	Platform string `json:"platform"`
+}
+
+// fallenSnippet shortens an API response body for use in error messages.
+func fallenSnippet(body string) string {
+	body = strings.TrimSpace(body)
+	if len(body) > 200 {
+		return body[:200] + "..."
+	}
+	return body
+}
+
+// getDownloadURL asks the OneGrab API for a CDN URL for the given
+// YouTube track.
 //
-// V2.0 has no /download step anymore. Audio is streamed directly:
+//	GET {apiBase}/api/track?url=<youtube_url>&video=false
+//	Header: X-API-Key: <key>
 //
-//	GET {apiBase}/stream/{video_id}?key=KEY
+// The JSON response contains "cdnurl", which is the URL the audio is
+// downloaded from.
 func (f *FallenApiPlatform) getDownloadURL(
 	ctx context.Context,
 	mediaURL string,
 ) (string, error) {
 
-	videoID, err := extractYouTubeVideoID(mediaURL)
-	if err != nil {
-		return "", err
+	if strings.TrimSpace(mediaURL) == "" {
+		return "", errors.New("fallenapi: empty track url")
 	}
 
-	apiBase := strings.TrimRight(config.FallenAPIURL, "/")
+	apiBase := strings.TrimRight(strings.TrimSpace(config.FallenAPIURL), "/")
+	if apiBase == "" {
+		return "", errors.New("fallenapi: API URL is not configured")
+	}
+
+	if videoID, err := extractYouTubeVideoID(mediaURL); err == nil {
+		gologging.Debug("FallenApi: requesting track for YouTube video " + videoID)
+	}
+
+	resp, err := rc.R().
+		SetContext(ctx).
+		SetQueryParam("url", mediaURL).
+		SetQueryParam("video", "false").
+		SetHeader("X-API-Key", config.FallenAPIKey).
+		Get(apiBase + "/api/track")
+	if err != nil {
+		if errors.Is(err, context.Canceled) ||
+			errors.Is(err, context.DeadlineExceeded) {
+			return "", err
+		}
+		return "", fmt.Errorf("onegrab /api/track request failed: %w", err)
+	}
+
+	if resp.StatusCode() < 200 || resp.StatusCode() >= 300 {
+		return "", fmt.Errorf(
+			"onegrab /api/track failed with status: %d body: %s",
+			resp.StatusCode(),
+			fallenSnippet(resp.String()),
+		)
+	}
+
+	body := resp.Bytes()
+	if len(body) == 0 {
+		return "", errors.New("onegrab /api/track returned an empty response")
+	}
+
+	var result oneGrabTrackResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", fmt.Errorf(
+			"onegrab /api/track returned invalid json: %w",
+			err,
+		)
+	}
+
+	cdnURL := strings.TrimSpace(result.CDNURL)
+	if cdnURL == "" {
+		return "", errors.New("onegrab /api/track response missing cdnurl")
+	}
+
+	parsed, err := url.Parse(cdnURL)
+	if err != nil {
+		return "", fmt.Errorf("onegrab returned invalid cdnurl: %w", err)
+	}
+
+	scheme := strings.ToLower(parsed.Scheme)
+	if (scheme != "http" && scheme != "https") || parsed.Host == "" {
+		return "", fmt.Errorf(
+			"onegrab returned unsupported cdnurl: %s",
+			fallenSnippet(cdnURL),
+		)
+	}
 
 	select {
 	case <-ctx.Done():
@@ -139,16 +220,7 @@ func (f *FallenApiPlatform) getDownloadURL(
 	default:
 	}
 
-	streamURL := fmt.Sprintf(
-		"%s/stream/%s?key=%s",
-		apiBase,
-		url.PathEscape(videoID),
-		url.QueryEscape(config.FallenAPIKey),
-	)
-
-	gologging.Debug("Meow API V2: requesting stream for YouTube video " + videoID)
-
-	return streamURL, nil
+	return cdnURL, nil
 }
 
 // extractYouTubeVideoID extracts the video ID from common YouTube URLs.
@@ -199,12 +271,20 @@ func (f *FallenApiPlatform) downloadFromURL(
 	ctx context.Context,
 	dlURL, path string,
 ) error {
-	resp, err := rc.R().
-		SetContext(ctx).
-		SetHeader("X-API-Key", config.FallenAPIKey).
-		SetHeader("Authorization", "Bearer "+config.FallenAPIKey).
-		Get(dlURL)
 
+	req := rc.R().SetContext(ctx)
+
+	// Only send the API key when the CDN is on the same host as the
+	// configured API. It must never be sent to any other host.
+	if apiURL, err := url.Parse(strings.TrimSpace(config.FallenAPIURL)); err == nil {
+		if cdn, err := url.Parse(dlURL); err == nil &&
+			apiURL.Host != "" &&
+			strings.EqualFold(cdn.Host, apiURL.Host) {
+			req = req.SetHeader("X-API-Key", config.FallenAPIKey)
+		}
+	}
+
+	resp, err := req.Get(dlURL)
 	if err != nil {
 		_ = os.Remove(path)
 
@@ -221,11 +301,29 @@ func (f *FallenApiPlatform) downloadFromURL(
 		return fmt.Errorf(
 			"download failed with status: %d body: %s",
 			resp.StatusCode(),
-			resp.String(),
+			fallenSnippet(resp.String()),
 		)
 	}
 
-	if err := os.WriteFile(path, resp.Bytes(), 0o600); err != nil {
+	data := resp.Bytes()
+	if len(data) == 0 {
+		_ = os.Remove(path)
+		return errors.New("download returned an empty file")
+	}
+
+	// A JSON or HTML body here is an error page, not audio.
+	contentType := strings.ToLower(resp.Header().Get("Content-Type"))
+	if strings.HasPrefix(contentType, "application/json") ||
+		strings.HasPrefix(contentType, "text/html") {
+		_ = os.Remove(path)
+		return fmt.Errorf(
+			"download returned %s instead of audio: %s",
+			contentType,
+			fallenSnippet(string(data)),
+		)
+	}
+
+	if err := os.WriteFile(path, data, 0o600); err != nil {
 		_ = os.Remove(path)
 		return fmt.Errorf("failed to save downloaded file: %w", err)
 	}
