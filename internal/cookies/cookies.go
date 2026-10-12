@@ -94,15 +94,13 @@ func copyEmbeddedCookies() error {
 	return nil
 }
 
+
 func downloadCookieFile(url string) error {
 	id := filepath.Base(url)
 	rawURL := "https://batbin.me/raw/" + id
 	filePath := filepath.Join(cookieDir, id+".txt")
 
-	resp, err := client.R().
-		SetResponseSaveToFile(true).
-		SetResponseSaveFileName(filePath).
-		Get(rawURL)
+	resp, err := client.R().Get(rawURL)
 	if err != nil {
 		return err
 	}
@@ -115,8 +113,13 @@ func downloadCookieFile(url string) error {
 		)
 	}
 
+	if err := os.WriteFile(filePath, resp.Body(), 0o600); err != nil {
+		return err
+	}
+
 	return nil
 }
+
 
 func loadCookieCache() error {
 	files, err := filepath.Glob(filepath.Join(cookieDir, "*.txt"))
