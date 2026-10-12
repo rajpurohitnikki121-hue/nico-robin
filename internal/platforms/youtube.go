@@ -485,9 +485,9 @@ func (p *YouTubePlatform) callInnerTube(endpoint string, body, result any) error
 		return fmt.Errorf("innertube request failed: %w", err)
 	}
 
-	if resp.IsStatusFailure() {
-		return fmt.Errorf("innertube error: %d", resp.StatusCode())
-	}
+	if resp.StatusCode() < 200 || resp.StatusCode() >= 300 {
+    return fmt.Errorf("innertube error: %d", resp.StatusCode())
+}
 
 	return nil
 }
