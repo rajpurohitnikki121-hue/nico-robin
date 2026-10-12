@@ -199,17 +199,14 @@ func (f *FallenApiPlatform) downloadFromURL(
 	ctx context.Context,
 	dlURL, path string,
 ) error {
-
 	resp, err := rc.R().
 		SetContext(ctx).
 		SetHeader("X-API-Key", config.FallenAPIKey).
 		SetHeader("Authorization", "Bearer "+config.FallenAPIKey).
-		SetResponseSaveToFile(true).
-		SetResponseSaveFileName(path).
 		Get(dlURL)
 
 	if err != nil {
-		os.Remove(path)
+		_ = os.Remove(path)
 
 		if errors.Is(err, context.Canceled) ||
 			errors.Is(err, context.DeadlineExceeded) {
@@ -219,13 +216,18 @@ func (f *FallenApiPlatform) downloadFromURL(
 		return fmt.Errorf("http download failed: %w", err)
 	}
 
-	if resp.IsStatusFailure() {
-		os.Remove(path)
+	if resp.StatusCode() < 200 || resp.StatusCode() >= 300 {
+		_ = os.Remove(path)
 		return fmt.Errorf(
 			"download failed with status: %d body: %s",
 			resp.StatusCode(),
 			resp.String(),
 		)
+	}
+
+	if err := os.WriteFile(path, resp.Bytes(), 0o600); err != nil {
+		_ = os.Remove(path)
+		return fmt.Errorf("failed to save downloaded file: %w", err)
 	}
 
 	return nil
@@ -236,7 +238,6 @@ func (f *FallenApiPlatform) downloadFromTelegram(
 	dlURL, path string,
 	pm *telegram.ProgressManager,
 ) (string, error) {
-
 	matches := telegramDLRegex.FindStringSubmatch(dlURL)
 
 	if len(matches) < 3 {
@@ -260,7 +261,6 @@ func (f *FallenApiPlatform) downloadFromTelegram(
 		username,
 		int32(messageID),
 	)
-
 	if err != nil {
 		return "", fmt.Errorf(
 			"failed to fetch Telegram message: %w",
@@ -278,9 +278,8 @@ func (f *FallenApiPlatform) downloadFromTelegram(
 	}
 
 	_, err = msg.Download(dOpts)
-
 	if err != nil {
-		os.Remove(path)
+		_ = os.Remove(path)
 		return "", err
 	}
 
