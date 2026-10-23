@@ -158,8 +158,31 @@ func GetGroupHelpKeyboard(chatID int64) *tg.ReplyInlineMarkup {
 		Build()
 }
 
+// ownerBtnText is the label of the Owner button on the /start message.
+const ownerBtnText = "♛ 𝐎𝐰𝐧𝐞𝐫"
+
+// ownerProfileLink returns an https://t.me/<username> link for the user set in
+// OWNER_ID, or "" when that is not possible (OWNER_ID unset/invalid, or the
+// owner has no public username / cannot be resolved by the bot). In that case
+// the Owner button is simply left out so /start keeps working as before.
+//
+// OWNER_ID is numeric, and tg://user?id=<id> links are not guaranteed to open
+// for every viewer, so only the username link is used.
+func ownerProfileLink() string {
+	if config.OwnerID <= 0 || Bot == nil {
+		return ""
+	}
+
+	user, err := Bot.GetUser(config.OwnerID)
+	if err != nil || user == nil || user.Username == "" {
+		return ""
+	}
+
+	return "https://t.me/" + user.Username
+}
+
 func GetStartMarkup(chatID int64) tg.ReplyMarkup {
-	return tg.NewKeyboard().
+	kb := tg.NewKeyboard().
 		AddRow(
 			tg.Button.URL(
 				F(chatID, "ADD_ME_BTN"),
@@ -181,8 +204,13 @@ func GetStartMarkup(chatID int64) tg.ReplyMarkup {
 				F(chatID, "SUPPORT_BTN"),
 				config.SupportChat,
 			),
-		).
-		Build()
+		)
+
+	if link := ownerProfileLink(); link != "" {
+		kb = kb.AddRow(tg.Button.URL(ownerBtnText, link))
+	}
+
+	return kb.Build()
 }
 
 func GetHelpKeyboard(chatID int64) *tg.ReplyInlineMarkup {
