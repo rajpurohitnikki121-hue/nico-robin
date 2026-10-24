@@ -175,11 +175,6 @@ var handlers = []MsgHandlerDef{
 		Handler: settingsHandler,
 		Filters: []telegram.Filter{superGroupFilter, adminFilter},
 	},
-	{
-		Pattern: "cleanmode",
-		Handler: cleanModeHandler,
-		Filters: []telegram.Filter{superGroupFilter, adminFilter},
-	},
 
 	// SuperGroup & Admin Filters
 
@@ -473,11 +468,6 @@ var handlers = []MsgHandlerDef{
 	{
 		Pattern: "playmode",
 		Handler: playmodeHandler,
-		Filters: []telegram.Filter{superGroupFilter, adminFilter},
-	},
-	{
-		Pattern: "(cmddelete|commanddelete)",
-		Handler: cmdDeleteHandler,
 		Filters: []telegram.Filter{superGroupFilter, adminFilter},
 	},
 	{
