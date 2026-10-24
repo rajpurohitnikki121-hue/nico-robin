@@ -491,8 +491,8 @@ play_added_to_queue_single: |
   <b>🎵 تمت الإضافة لقائمة الانتظار:</b> #{index}
 
   <b>▫ المقطع:</b> <a href="{url}">{title}</a>
-  <b>▫ المدة:</b> {duration}
-  <b>▫ طلب بواسطة:</b> {by}
+
+playnow_unavailable: "⚠️ هذا المقطع لم يعد في قائمة الانتظار."
 
 play_multiple_tracks_too_long_header: "<b>⚠️ تم تخطي {count} مقاطع (المدة القصوى {limit_mins} دقيقة):</b>"
 play_multiple_tracks_too_long_item: "— <i>{title}</i>"
@@ -974,7 +974,6 @@ help_admin: |
   <b>/playmode</b> - التحكم في من يمكنه استخدام /play
   <b>/cplay</b> - تشغيل في المحادثة الصوتية للقناة المرتبطة
   <b>/adminmode</b> - التحكم في من يمكنه استخدام أوامر الإدارة
-  <b>/cmddelete</b> - تبديل الحذف التلقائي لأوامر البوت
   <b>/settings</b> - تكوين إعدادات الدردشة
   <b>/speed</b> - تغيير سرعة التشغيل
   <b>/skip</b> - تخطي الأغنية الحالية
@@ -1013,4 +1012,3 @@ help_public: |
   <b>/json</b> - عرض بنية JSON للرسالة
   <b>/sudolist</b> - عرض قائمة المساعدين
   </blockquote>
-
