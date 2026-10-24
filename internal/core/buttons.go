@@ -150,6 +150,20 @@ func GetPlayMarkup(chatID int64, r *RoomState, queued bool) tg.ReplyMarkup {
 	return btn.Build()
 }
 
+// playNowBtnText is the label of the single button on the queue confirmation.
+const playNowBtnText = "▶ 𝐏𝐥𝐚𝐲 𝐍𝐨𝐰"
+
+// GetQueueMarkup returns the compact keyboard of the "Added to Queue" message.
+// seq comes from RegisterQueueTrack and is resolved again in the room callback
+// handler (action "pn<seq>").
+func GetQueueMarkup(r *RoomState, seq uint64) tg.ReplyMarkup {
+	return tg.NewKeyboard().
+		AddRow(
+			tg.Button.Data(playNowBtnText, fmt.Sprintf("room:%d:pn%d", r.ID, seq)),
+		).
+		Build()
+}
+
 func GetGroupHelpKeyboard(chatID int64) *tg.ReplyInlineMarkup {
 	return tg.NewKeyboard().
 		AddRow(
