@@ -9,8 +9,6 @@ import (
 
 	"main/internal/core"
 	"main/internal/database"
-	"main/internal/locales"
-	"main/internal/utils"
 )
 
 const (
@@ -56,19 +54,6 @@ func cleanModeDelay(chatID int64) time.Duration {
 		return defaultCleanDelay
 	}
 	return time.Duration(settings.CleanModeDurationMins) * time.Minute
-}
-
-func cleanModeStatusText(chatID int64, enabled bool) string {
-	settings, _ := database.GetChatSettings(chatID)
-	duration := 15
-	if settings != nil && settings.CleanModeDurationMins > 0 {
-		duration = settings.CleanModeDurationMins
-	}
-	return F(
-		chatID,
-		"cleanmode_status",
-		locales.Arg{"action": F(chatID, utils.IfElse(enabled, "enabled", "disabled")), "duration": duration},
-	)
 }
 
 type cleanEntry struct {
@@ -134,10 +119,6 @@ func (s *CleanScheduler) flushDue(deadline time.Time) {
 	s.mu.Unlock()
 
 	for chatID, ids := range batches {
-		enabled, err := database.CleanMode(chatID)
-		if err != nil || !enabled {
-			continue
-		}
 		if _, err := core.Bot.DeleteMessages(chatID, ids); err != nil {
 			gologging.DebugF("cleanmode delete failed chat=%d err=%v", chatID, err)
 		}
