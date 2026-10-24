@@ -14,6 +14,13 @@ import (
 const (
 	cleanModeBatchWindow = 10 * time.Second
 	defaultCleanDelay    = 15 * time.Minute
+
+	// oldPlayerDelay is how long a replaced/finished player card stays before
+	// it is removed. A card that is still the active player is never removed
+	// (see flushDue), so this is only a short grace period.
+	oldPlayerDelay = 15 * time.Second
+	// queueFinishedDelay is how long the "Queue Finished!" message stays.
+	queueFinishedDelay = 30 * time.Second
 )
 
 var (
@@ -77,13 +84,22 @@ func (s *CleanScheduler) start() {
 }
 
 func (s *CleanScheduler) schedule(chatID int64, messageID int32) {
+	s.scheduleAfter(chatID, messageID, cleanModeDelay(chatID))
+}
+
+// scheduleAfter queues a message for deletion after the given delay.
+func (s *CleanScheduler) scheduleAfter(
+	chatID int64,
+	messageID int32,
+	delay time.Duration,
+) {
 	if messageID == 0 {
 		return
 	}
 	s.mu.Lock()
 	s.pending[chatID] = append(s.pending[chatID], cleanEntry{
 		messageID: messageID,
-		dueAt:     time.Now().Add(cleanModeDelay(chatID)),
+		dueAt:     time.Now().Add(delay),
 	})
 	s.mu.Unlock()
 }
@@ -127,6 +143,6 @@ func (s *CleanScheduler) flushDue(deadline time.Time) {
 
 func scheduleOldPlayingMessage(r *core.RoomState) {
 	if m := r.StatusMsg(); m != nil {
-		cleanScheduler.schedule(m.ChannelID(), m.ID)
+		cleanScheduler.scheduleAfter(m.ChannelID(), m.ID, oldPlayerDelay)
 	}
 }
