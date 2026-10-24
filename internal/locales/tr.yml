@@ -490,8 +490,8 @@ play_added_to_queue_single: |
   <b>🎵 Sıraya Eklendi:</b> #{index}
 
   <b>▫ Parça:</b> <a href="{url}">{title}</a>
-  <b>▫ Süre:</b> {duration}
-  <b>▫ İsteyen:</b> {by}
+
+playnow_unavailable: "⚠️ Bu parça artık sırada değil."
 
 play_multiple_tracks_too_long_header: "<b>⚠️ {count} parça atlandı (maksimum süre {limit_mins} dk):</b>"
 play_multiple_tracks_too_long_item: "— <i>{title}</i>"
@@ -971,7 +971,6 @@ help_admin: |
   <b>/playmode</b> - /play komutunu kimin kullanacağını kontrol et
   <b>/cplay</b> - Bağlı kanalın sesli sohbetinde oynat
   <b>/adminmode</b> - Yönetici komutlarını kimin kullanacağını kontrol et
-  <b>/cmddelete</b> - Bot komutlarının otomatik silinmesini aç/kapat
   <b>/settings</b> - Sohbet ayarlarını yapılandır
   <b>/speed</b> - Oynatma hızını değiştir
   <b>/skip</b> - Mevcut şarkıyı atla
