@@ -488,9 +488,11 @@ play_download_failed: |
   Error: <code>{error}</code>
 
 play_added_to_queue_single: |
-  <b>🎵 Added to Queue:</b> #{index}
-
-  <b>▫ Track:</b> <a href="{url}">{title}</a>
+  <u>ǫᴜᴇᴜᴇ #{index} ᴀᴅᴅᴇᴅ ♡</u>
+  ──────────────
+  ♫ ᴛɪᴛʟᴇ: <a href="{url}">{title}</a>
+  ⏳ ᴅᴜʀᴀᴛɪᴏɴ: {duration}
+  ♡ ʀᴇǫᴜᴇꜱᴛᴇᴅ ʙʏ: {by}
 
 playnow_unavailable: "⚠️ This track is no longer in the queue."
 
@@ -898,11 +900,13 @@ stream_downloading_next: "📥 Downloading your next track..."
 stream_download_fail: "❌ Failed to download.\nError: <code>{error}</code>"
 stream_play_fail: "❌ Failed to play the song."
 stream_now_playing: |
-  <b>🎵 Now Playing:</b>
+  💮 ɴᴏᴡ ᴘʟᴀʏɪɴɢ ♡
 
-  <b>▫ Track:</b> <a href="{url}">{title}</a>
-  <b>▫ Duration:</b> {duration}
-  <b>▫ Requested by:</b> {by}
+  ♫ ᴛʀᴀᴄᴋ: <a href="{url}">{title}</a>
+
+  ⏳ ᴅᴜʀᴀᴛɪᴏɴ: {duration}
+
+  ♡ ʀᴇǫᴜᴇꜱᴛᴇᴅ ʙʏ: {by}
 
 # 👑 Sudo / Owner Join Messages
 sudo_join_owner: "👑 {user} — owner of {bot} — just entered the chat."
