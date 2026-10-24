@@ -492,8 +492,8 @@ play_added_to_queue_single: |
   <b>🎵 प्रतीक्षा सूची में जोड़ा गया:</b> #{index}
 
   <b>▫ संगीत:</b> <a href="{url}">{title}</a>
-  <b>▫ अवधि:</b> {duration}
-  <b>▫ अनुरुद्धकर्ता:</b> {by}
+
+playnow_unavailable: "⚠️ यह संगीत अब प्रतीक्षा सूची में नहीं है।"
 
 play_multiple_tracks_too_long_header: "<b>⚠️ {count} संगीत छोड़ दिए गए (अधिकतम अवधि {limit_mins} मिनट):</b>"
 play_multiple_tracks_too_long_item: "— <i>{title}</i>"
@@ -974,7 +974,6 @@ help_admin: |
   <b>/playmode</b> - संगीत संचालन विधा नियन्त्रित करें
   <b>/cplay</b> - सम्बद्ध चैनल के ध्वनि वार्तालाप में चलाएँ
   <b>/adminmode</b> - प्रशासकीय आदेश विधा नियन्त्रित करें
-  <b>/cmddelete</b> - आदेशों के स्वचालित विलोपन को सक्षम या अक्षम करें
   <b>/settings</b> - वार्तालाप विन्यास विन्यस्त करें
   <b>/speed</b> - चलाने की गति बदलें
   <b>/skip</b> - वर्तमान गीत छोड़ें
