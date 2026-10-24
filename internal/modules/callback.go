@@ -114,6 +114,8 @@ func roomHandle(cb *tg.CallbackQuery) error {
 		return handleReplayAction(cb, r)
 	case action == "skip":
 		return handleSkipAction(cb, r)
+	case strings.HasPrefix(action, "pn"):
+		return handlePlayNowAction(cb, r, action)
 	case action == "stop":
 		return handleStopAction(cb, r)
 	case action == "mute":
@@ -328,6 +330,52 @@ func handleSkipAction(cb *tg.CallbackQuery, r *core.RoomState) error {
 		"user": utils.MentionHTML(cb.Sender),
 	}))
 	return tg.ErrEndGroup
+}
+
+// handlePlayNowAction handles the "Play Now" button of a queue confirmation.
+// It moves the selected track to the front of the queue and then reuses the
+// existing skip flow, which takes the next queued track, downloads it and
+// plays it.
+func handlePlayNowAction(
+	cb *tg.CallbackQuery,
+	r *core.RoomState,
+	action string,
+) error {
+	opt := &tg.CallbackOptions{Alert: true}
+	chatID := cb.ChannelID()
+	gologging.InfoF("Callback → play now, chatID=%d", chatID)
+
+	idx := -1
+	if seq, err := strconv.ParseUint(strings.TrimPrefix(action, "pn"), 10, 64); err == nil {
+		if target := core.QueueTrackBySeq(seq); target != nil {
+			for i, q := range r.Queue() {
+				if q == target {
+					idx = i
+					break
+				}
+			}
+		}
+	}
+
+	if idx < 0 {
+		// Expired, already playing, or removed from the queue.
+		cb.Answer(F(chatID, "playnow_unavailable"), opt)
+		cb.Delete()
+		return tg.ErrEndGroup
+	}
+
+	if idx > 0 {
+		r.MoveInQueue(idx, 0)
+	}
+
+	// The skip flow takes the first queued track, but with shuffle enabled it
+	// would pick a random one, so shuffle is paused for this call.
+	if r.Shuffle() {
+		r.SetShuffle(false)
+		defer r.SetShuffle(true)
+	}
+
+	return handleSkipAction(cb, r)
 }
 
 func handleStopAction(cb *tg.CallbackQuery, r *core.RoomState) error {
