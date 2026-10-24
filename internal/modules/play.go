@@ -570,7 +570,15 @@ func finalizePlayReply(
 
 	if len(tracks) == 1 {
 		msg, opts := buildSingleQueueReply(chatID, r, mainTrack, mention)
-		utils.EOR(replyMsg, msg, opts)
+		if qm, err := utils.EOR(replyMsg, msg, opts); err == nil && qm != nil {
+			// Remember the message so it can be removed once this track starts.
+			core.SetQueueMsg(mainTrack, qm)
+			// The track may have started (or left the queue) while the message
+			// was being sent; then the message is already obsolete.
+			if !isTrackQueued(r, mainTrack) {
+				core.DeleteQueueMsg(mainTrack)
+			}
+		}
 		return nil
 	}
 
@@ -612,12 +620,10 @@ func buildSingleQueueReply(
 	mention string,
 ) (string, *tg.SendOptions) {
 	title := utils.EscapeHTML(utils.ShortTitle(track.Title, 25))
+	// Compact queue message: no thumbnail, a single "Play Now" button.
 	opt := &tg.SendOptions{
 		ParseMode:   "HTML",
-		ReplyMarkup: core.GetPlayMarkup(chatID, r, true),
-	}
-	if track.Artwork != "" && shouldShowThumb(chatID) {
-		opt.Media = utils.CleanURL(track.Artwork)
+		ReplyMarkup: core.GetQueueMarkup(r, core.RegisterQueueTrack(track)),
 	}
 
 	msg := F(chatID, "play_added_to_queue_single", locales.Arg{
@@ -628,6 +634,16 @@ func buildSingleQueueReply(
 		"by":       mention,
 	})
 	return msg, opt
+}
+
+// isTrackQueued reports whether t is still waiting in the room's queue.
+func isTrackQueued(r *core.RoomState, t *state.Track) bool {
+	for _, q := range r.Queue() {
+		if q == t {
+			return true
+		}
+	}
+	return false
 }
 
 func buildMultiAddedText(
