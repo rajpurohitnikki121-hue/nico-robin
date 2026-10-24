@@ -77,11 +77,15 @@ func (r *RoomState) RemoveFromQueue(index int) {
 	defer r.mu.Unlock()
 
 	if index == -1 {
+		for _, t := range r.queue {
+			DeleteQueueMsg(t)
+		}
 		r.queue = []*state.Track{}
 		return
 	}
 
 	if index >= 0 && index < len(r.queue) {
+		DeleteQueueMsg(r.queue[index])
 		r.queue = append(r.queue[:index], r.queue[index+1:]...)
 	}
 }
