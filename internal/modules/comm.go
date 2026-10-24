@@ -137,7 +137,6 @@ var AllCommands = BotCommands{
 		// Settings & access
 		cmd("playmode", "Control who can use /play."),
 		cmd("adminmode", "Control who can use admin music commands."),
-		cmd("cmddelete", "Toggle automatic deletion of bot commands."),
 		cmd("settings", "Configure chat settings."),
 		cmd("addauth", "Add a user to the authorized list."),
 		cmd("delauth", "Remove a user from the authorized list."),
