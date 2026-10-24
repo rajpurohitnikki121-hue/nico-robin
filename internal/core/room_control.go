@@ -78,6 +78,9 @@ func (r *RoomState) Play(t *state.Track, path string, force ...bool) error {
 		return err
 	}
 
+	// The track has started: its "Added to Queue" message is obsolete now.
+	DeleteQueueMsg(t)
+
 	return nil
 }
 
