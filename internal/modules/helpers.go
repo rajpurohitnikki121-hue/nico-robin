@@ -235,16 +235,15 @@ func SafeMessageHandler(
 			}
 		}()
 
-		if m.IsCommand() {
-			isEnabled, _ := database.CommandDelete(m.ChannelID())
-			if isEnabled {
-				_, _ = m.Delete()
-			} else {
-				cleanMode, _ := database.CleanMode(m.ChannelID())
-				if cleanMode {
-					cleanScheduler.schedule(m.ChannelID(), m.ID)
+		// Automatic cleanup: once a supported command has been handled, its
+		// message is removed from group chats (private chats are left alone).
+		// Failures (missing delete rights, message already gone) are ignored.
+		if m.IsCommand() && m.ChatType() != tg.EntityUser {
+			defer func() {
+				if _, delErr := m.Delete(); delErr != nil {
+					gologging.DebugF("command message delete failed: %v", delErr)
 				}
-			}
+			}()
 		}
 
 		cmd := getCommand(m)
