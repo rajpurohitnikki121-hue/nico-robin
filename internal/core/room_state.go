@@ -111,6 +111,11 @@ func DeleteRoom(chatID int64) bool {
 
 	room.cleanupFile()
 	room.Stop()
+	// Tracks still waiting in this room's queue will never play, so their
+	// "Added to Queue" messages are obsolete.
+	for _, t := range room.Queue() {
+		DeleteQueueMsg(t)
+	}
 	room.destroyed.Store(true)
 	return true
 }
