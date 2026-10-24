@@ -121,7 +121,8 @@ func handleSkip(m *telegram.NewMessage, cplay bool) error {
 			}))
 			return telegram.ErrEndGroup
 		}
-		_ = r.NextTrack()
+		// Skipped before it ever played: drop its queue message too.
+		core.DeleteQueueMsg(r.NextTrack())
 	}
 
 	if len(r.Queue()) == 0 {
