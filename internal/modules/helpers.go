@@ -158,10 +158,8 @@ func sendPlayLogs(m *tg.NewMessage, track *state.Track, queued bool) {
 	}
 
 	text := sb.String()
-	opts := &tg.SendOptions{ParseMode: "HTML"}
-	if shouldShowThumb(config.LoggerID) && track.Artwork != "" {
-		opts.Media = utils.CleanURL(track.Artwork)
-	}
+	// No thumbnail in the logger chat: plain text, no media and no link preview.
+	opts := &tg.SendOptions{ParseMode: "HTML", LinkPreview: false}
 
 	_, err := core.Bot.SendMessage(config.LoggerID, text, opts)
 	if err != nil {
