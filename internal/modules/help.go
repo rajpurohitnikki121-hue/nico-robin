@@ -20,10 +20,7 @@ package modules
 import (
 	"fmt"
 	"html"
-	"sort"
-	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/Laky-64/gologging"
 	tg "github.com/amarnathcjd/gogram/telegram"
@@ -45,171 +42,187 @@ func init() {
 For more info, visit our <a href="%s">Support Chat</a>.`, config.SupportChat)
 }
 
-const (
-	// helpPageSize is the number of command buttons per help page
-	// (3 buttons per row, 5 rows).
-	helpPageSize = 15
-	helpCols     = 3
-)
-
-// helpHiddenCmds are developer-only commands that are kept out of the
-// public help list.
-var helpHiddenCmds = map[string]bool{
-	"sh": true, "bash": true, "shell": true,
-	"eval": true, "ev": true, "json": true,
-}
-
-var (
-	helpListOnce sync.Once
-	helpList     []string
-)
-
-// helpTextOf returns the help text of a command given without the leading "/".
-// helpTexts keys are registered both with and without the slash.
-func helpTextOf(name string) string {
-	if t, ok := helpTexts["/"+name]; ok {
-		return t
+// boldFont converts ASCII letters/digits to the mathematical bold font used on
+// the bot's buttons (same style as the Owner button).
+func boldFont(s string) string {
+	var sb strings.Builder
+	for _, r := range s {
+		switch {
+		case r >= 'A' && r <= 'Z':
+			sb.WriteRune(0x1D400 + (r - 'A'))
+		case r >= 'a' && r <= 'z':
+			sb.WriteRune(0x1D41A + (r - 'a'))
+		case r >= '0' && r <= '9':
+			sb.WriteRune(0x1D7CE + (r - '0'))
+		default:
+			sb.WriteRune(r)
+		}
 	}
-	return helpTexts[name]
+	return sb.String()
 }
 
-// helpCommands returns the commands shown in the help menu: the bot's
-// registered commands first (in their menu order), then any other command that
-// has a help text. Aliases that share the same help text are shown once.
-func helpCommands() []string {
-	helpListOnce.Do(func() {
-		seenName := map[string]bool{}
-		seenText := map[string]bool{}
-
-		add := func(raw string) {
-			name := strings.TrimPrefix(strings.ToLower(raw), "/")
-			if name == "" || seenName[name] || helpHiddenCmds[name] {
-				return
-			}
-			text := helpTextOf(name)
-			if text == "" || seenText[text] {
-				return
-			}
-			seenName[name] = true
-			seenText[text] = true
-			helpList = append(helpList, name)
-		}
-
-		groups := [][]*tg.BotCommand{
-			AllCommands.PrivateUserCommands,
-			AllCommands.GroupUserCommands,
-			AllCommands.GroupAdminCommands,
-			AllCommands.PrivateSudoCommands,
-			AllCommands.PrivateOwnerCommands,
-		}
-		for _, g := range groups {
-			for _, c := range g {
-				add(c.Command)
-			}
-		}
-
-		// Commands that are not in the bot menu. Several aliases can share one
-		// help text (e.g. bcast / gcast / broadcast); the longest name is the
-		// most descriptive, so that one is listed.
-		best := map[string]string{}
-		for k := range helpTexts {
-			name := strings.TrimPrefix(strings.ToLower(k), "/")
-			text := helpTextOf(name)
-			if name == "" || helpHiddenCmds[name] || text == "" || seenText[text] {
-				continue
-			}
-			if cur, ok := best[text]; !ok || len(name) > len(cur) ||
-				(len(name) == len(cur) && name < cur) {
-				best[text] = name
-			}
-		}
-		rest := make([]string, 0, len(best))
-		for _, name := range best {
-			rest = append(rest, name)
-		}
-		sort.Strings(rest)
-		for _, name := range rest {
-			add(name)
-		}
-	})
-	return helpList
+// helpLine is one row of a help category. cmds are shown together, e.g.
+// "/pause, /cpause" (group command and its channel variant).
+type helpLine struct {
+	cmds string
+	desc string
 }
 
-// helpPageCount returns how many pages the command list needs.
-func helpPageCount() int {
-	n := (len(helpCommands()) + helpPageSize - 1) / helpPageSize
-	if n < 1 {
-		return 1
+type helpGroup struct {
+	id    string
+	label string
+	about string
+	lines []helpLine
+}
+
+const helpChannelNote = "Commands starting with c work in the linked channel's voice chat. Set it up first with /setcplay."
+
+var helpGroups = []helpGroup{
+	{
+		id: "play", label: "Play",
+		about: "Play songs and videos in the voice chat. " + helpChannelNote,
+		lines: []helpLine{
+			{"/play, /cplay", "Play a song or link."},
+			{"/fplay, /cfplay", "Force play, skips the queue."},
+			{"/vplay, /vcplay", "Play a video."},
+			{"/fvplay, /fvcplay", "Force play a video."},
+			{"/setcplay", "Link a channel for channel play."},
+		},
+	},
+	{
+		id: "ctrl", label: "Controls",
+		about: "Control the song that is playing. " + helpChannelNote,
+		lines: []helpLine{
+			{"/pause, /cpause", "Pause the song."},
+			{"/resume, /cresume", "Resume the song."},
+			{"/skip, /cskip", "Skip to the next song."},
+			{"/stop, /cstop", "Stop and leave the voice chat."},
+			{"/mute, /cmute", "Mute the bot."},
+			{"/unmute, /cunmute", "Unmute the bot."},
+			{"/seek, /cseek", "Seek forward."},
+			{"/seekback, /cseekback", "Seek backward."},
+			{"/replay, /creplay", "Restart the current song."},
+			{"/speed, /cspeed", "Change the playback speed."},
+			{"/loop, /cloop", "Loop the current song."},
+			{"/shuffle, /cshuffle", "Shuffle the queue."},
+		},
+	},
+	{
+		id: "queue", label: "Queue",
+		about: "See and manage the queue. " + helpChannelNote,
+		lines: []helpLine{
+			{"/queue, /cqueue", "Show the queue."},
+			{"/position, /cposition", "Current song position."},
+			{"/jump, /cjump", "Jump to a song."},
+			{"/remove, /cremove", "Remove a song."},
+			{"/move, /cmove", "Move a song."},
+			{"/clear, /cclear", "Clear the queue."},
+			{"/restore, /crestore", "Restore the cleared queue."},
+		},
+	},
+	{
+		id: "plist", label: "Playlist",
+		about: "Create and play your own personal playlists.",
+		lines: []helpLine{
+			{"/createplaylist", "Create a playlist."},
+			{"/addplaylist", "Add the current song."},
+			{"/removeplaylist", "Remove a song."},
+			{"/myplaylist", "Show your playlists."},
+			{"/playlist", "Play a saved playlist."},
+		},
+	},
+	{
+		id: "admin", label: "Admin",
+		about: "Group settings and who can use the bot. " + helpChannelNote,
+		lines: []helpLine{
+			{"/addauth, /delauth", "Add or remove an authorized user."},
+			{"/authlist", "List authorized users."},
+			{"/adminmode", "Who can use admin commands."},
+			{"/playmode", "Who can use /play."},
+			{"/settings", "Chat settings."},
+			{"/nothumb", "Thumbnails on or off."},
+			{"/reload, /creload", "Refresh the admin list."},
+		},
+	},
+	{
+		id: "stream", label: "Stream",
+		about: "Stream an RTMP source in the voice chat.",
+		lines: []helpLine{
+			{"/setrtmp", "Set the RTMP URL (in DM)."},
+			{"/stream", "Start the RTMP stream."},
+			{"/streamstatus", "Stream status."},
+			{"/streamstop", "Stop the stream."},
+		},
+	},
+	{
+		id: "gen", label: "General",
+		about: "Everyday commands for everyone.",
+		lines: []helpLine{
+			{"/start", "Open the main menu."},
+			{"/help", "Open this help menu."},
+			{"/ping", "Check if the bot is alive."},
+			{"/lang", "Change the language."},
+			{"/bug", "Report a bug."},
+			{"/privacy", "Privacy policy."},
+		},
+	},
+	{
+		id: "sudo", label: "Sudo",
+		about: "For sudo users and the owner only.",
+		lines: []helpLine{
+			{"/ac", "Active voice chats."},
+			{"/stats", "Bot statistics."},
+			{"/speedtest", "Server speed test."},
+			{"/broadcast", "Message all chats."},
+			{"/autoleave", "Auto leave on or off."},
+			{"/logger", "Logger on or off."},
+			{"/logs", "Get the log file."},
+			{"/sudoers", "List sudo users."},
+			{"/addsudo, /delsudo", "Add or remove a sudo user."},
+			{"/blockuser, /unblockuser", "Block or unblock a user."},
+			{"/blockchat, /unblockchat", "Block or unblock a chat."},
+			{"/blacklisted", "List blocked users and chats."},
+			{"/maintenance", "Maintenance mode."},
+			{"/restart", "Restart the bot."},
+		},
+	},
+}
+
+func helpGroupByID(id string) *helpGroup {
+	for i := range helpGroups {
+		if helpGroups[i].id == id {
+			return &helpGroups[i]
+		}
 	}
-	return n
+	return nil
 }
 
-// clampHelpPage keeps a page number inside the valid range.
-func clampHelpPage(page int) int {
-	if page < 0 {
-		return 0
+// helpMainMarkup is the category grid: three buttons per row (the last one is
+// Language), then Back.
+func helpMainMarkup(chatID int64) *tg.ReplyInlineMarkup {
+	btns := make([]tg.KeyboardButton, 0, len(helpGroups)+1)
+	for _, g := range helpGroups {
+		btns = append(btns, tg.Button.Data(boldFont(g.label), "help:g:"+g.id))
 	}
-	if last := helpPageCount() - 1; page > last {
-		return last
-	}
-	return page
-}
-
-// helpPageText is the message shown above the command grid.
-func helpPageText(chatID int64, page int) string {
-	return F(chatID, "help_main") +
-		"\n\n<i>Page " + strconv.Itoa(page+1) + "/" +
-		strconv.Itoa(helpPageCount()) + "</i>"
-}
-
-// helpPageMarkup builds one page of the command grid (3 buttons per row) with
-// Prev / Next buttons when there are more commands and a Back button to the
-// start menu.
-func helpPageMarkup(chatID int64, page int) *tg.ReplyInlineMarkup {
-	cmds := helpCommands()
-	pages := helpPageCount()
-	start := page * helpPageSize
-	end := min(start+helpPageSize, len(cmds))
+	btns = append(btns, tg.Button.Data(boldFont("Language"), "lang:help"))
 
 	kb := tg.NewKeyboard()
-
-	for i := start; i < end; i += helpCols {
-		stop := min(i+helpCols, end)
-		switch stop - i {
-		case 3:
-			kb.AddRow(
-				tg.Button.Data("/"+cmds[i], "help:c:"+cmds[i]),
-				tg.Button.Data("/"+cmds[i+1], "help:c:"+cmds[i+1]),
-				tg.Button.Data("/"+cmds[i+2], "help:c:"+cmds[i+2]),
-			)
-		case 2:
-			kb.AddRow(
-				tg.Button.Data("/"+cmds[i], "help:c:"+cmds[i]),
-				tg.Button.Data("/"+cmds[i+1], "help:c:"+cmds[i+1]),
-			)
-		default:
-			kb.AddRow(
-				tg.Button.Data("/"+cmds[i], "help:c:"+cmds[i]),
-			)
-		}
-	}
-
-	prev := "help:pg:" + strconv.Itoa(page-1)
-	next := "help:pg:" + strconv.Itoa(page+1)
-	switch {
-	case page > 0 && page < pages-1:
-		kb.AddRow(
-			tg.Button.Data("‹ Prev", prev),
-			tg.Button.Data("Next ›", next),
-		)
-	case page > 0:
-		kb.AddRow(tg.Button.Data("‹ Prev", prev))
-	case page < pages-1:
-		kb.AddRow(tg.Button.Data("Next ›", next))
-	}
-
+	kb.NewColumn(helpCols, btns...)
 	kb.AddRow(tg.Button.Data(F(chatID, "BACK_BTN"), "start"))
 	return kb.Build()
+}
+
+// helpGroupText builds the page of one category.
+func helpGroupText(g *helpGroup) string {
+	var sb strings.Builder
+	sb.WriteString("<u>" + html.EscapeString(g.label) + " Commands:</u>\n\n")
+	sb.WriteString("<i>" + html.EscapeString(g.about) + "</i>\n\n")
+	for _, l := range g.lines {
+		sb.WriteString("• " + html.EscapeString(l.cmds) + " : " +
+			html.EscapeString(l.desc) + "\n")
+	}
+	sb.WriteString("\n<i>Full usage of a command:</i> /help play")
+	return sb.String()
 }
 
 // helpEdit edits the help message. A photo caption is limited to 1024
@@ -229,46 +242,29 @@ func helpEdit(c *tg.CallbackQuery, text string, opts *tg.SendOptions) {
 	_, _ = c.Delete()
 }
 
-func showHelpPage(c *tg.CallbackQuery, page int) error {
+func showHelpMain(c *tg.CallbackQuery) error {
 	chatID := c.ChannelID()
-	page = clampHelpPage(page)
 	helpEdit(
 		c,
-		helpPageText(chatID, page),
-		&tg.SendOptions{ReplyMarkup: helpPageMarkup(chatID, page)},
+		F(chatID, "help_main"),
+		&tg.SendOptions{ReplyMarkup: helpMainMarkup(chatID)},
 	)
 	return tg.ErrEndGroup
 }
 
-// showHelpCommand shows how to use a single command, with a Back button that
-// returns to the page of the command list the command is on.
-func showHelpCommand(c *tg.CallbackQuery, name string) error {
+const helpCols = 3
+
+func showHelpGroup(c *tg.CallbackQuery, id string) error {
+	g := helpGroupByID(id)
+	if g == nil {
+		return showHelpMain(c)
+	}
 	chatID := c.ChannelID()
-	name = strings.TrimPrefix(strings.ToLower(name), "/")
-
-	page := 0
-	for i, n := range helpCommands() {
-		if n == name {
-			page = i / helpPageSize
-			break
-		}
-	}
-
-	back := tg.NewKeyboard().
-		AddRow(
-			tg.Button.Data(F(chatID, "BACK_BTN"), "help:pg:"+strconv.Itoa(page)),
-		).
-		Build()
-
-	text := helpTextOf(name)
-	if text == "" {
-		text = "⚠️ <i>No help found for command <code>/" +
-			html.EscapeString(name) + "</code></i>"
-	} else {
-		text = "<b>⦿ /" + html.EscapeString(name) + "</b>\n\n" + text
-	}
-
-	helpEdit(c, text, &tg.SendOptions{ReplyMarkup: back})
+	back := tg.NewKeyboard().AddRow(
+		tg.Button.Data(F(chatID, "BACK_BTN"), "help:main"),
+		tg.Button.Data(boldFont("Close"), "close"),
+	).Build()
+	helpEdit(c, helpGroupText(g), &tg.SendOptions{ReplyMarkup: back})
 	return tg.ErrEndGroup
 }
 
@@ -295,15 +291,15 @@ func helpHandler(m *tg.NewMessage) error {
 	}
 
 	m.Reply(
-		helpPageText(m.ChannelID(), 0),
-		&tg.SendOptions{ReplyMarkup: helpPageMarkup(m.ChannelID(), 0)},
+		F(m.ChannelID(), "help_main"),
+		&tg.SendOptions{ReplyMarkup: helpMainMarkup(m.ChannelID())},
 	)
 	return tg.ErrEndGroup
 }
 
 func helpCB(c *tg.CallbackQuery) error {
 	c.Answer("")
-	return showHelpPage(c, 0)
+	return showHelpMain(c)
 }
 
 func helpCallbackHandler(c *tg.CallbackQuery) error {
@@ -318,13 +314,13 @@ func helpCallbackHandler(c *tg.CallbackQuery) error {
 		return tg.ErrEndGroup
 	}
 
-	// Command grid: "help:pg:<page>" and "help:c:<command>".
+	// Categories: "help:g:<id>". Old paged-grid buttons ("help:pg:", "help:c:")
+	// on messages sent earlier simply open the main menu.
 	switch {
-	case strings.HasPrefix(parts[1], "pg:"):
-		page, _ := strconv.Atoi(strings.TrimPrefix(parts[1], "pg:"))
-		return showHelpPage(c, page)
-	case strings.HasPrefix(parts[1], "c:"):
-		return showHelpCommand(c, strings.TrimPrefix(parts[1], "c:"))
+	case strings.HasPrefix(parts[1], "g:"):
+		return showHelpGroup(c, strings.TrimPrefix(parts[1], "g:"))
+	case strings.HasPrefix(parts[1], "pg:"), strings.HasPrefix(parts[1], "c:"):
+		return showHelpMain(c)
 	}
 
 	var text string
@@ -340,7 +336,7 @@ func helpCallbackHandler(c *tg.CallbackQuery) error {
 	case "public":
 		text = F(chatID, "help_public")
 	case "main":
-		return showHelpPage(c, 0)
+		return showHelpMain(c)
 	}
 
 	c.Edit(text, &tg.SendOptions{ReplyMarkup: btn})
