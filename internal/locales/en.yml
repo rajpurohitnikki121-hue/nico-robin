@@ -8,19 +8,20 @@ ADD_ME_BTN: "⚡ Add Me to Your group"
 BROADCAST_CANCEL_BTN: "🚫 Cancel Broadcast"
 CLOSE_BTN: "Close"
 DOWNLOAD_CANCEL_BTN: "🚦 Cancel Downloading"
-GC_HELP_BTN: "📒 Commands"
+GC_HELP_BTN: "𝐇𝐞𝐥𝐩"
 
-START_HELP_BTN: "❓ Help & Commands"
+START_HELP_BTN: "𝐇𝐞𝐥𝐩"
 
-UPDATES_BTN: "📢 Updates"
-SUPPORT_BTN: "💬 Support"
+UPDATES_BTN: "𝐔𝐩𝐝𝐚𝐭𝐞𝐬"
+START_LANG_BTN: "𝐋𝐚𝐧𝐠𝐮𝐚𝐠𝐞"
+SUPPORT_BTN: "𝐒𝐮𝐩𝐩𝐨𝐫𝐭"
 
 HELP_ADMINS_BTN: "🛠 Admins"
 HELP_PUBLIC_BTN: "🌍 Public"
 HELP_OWNER_BTN: "👑 Owner"
 HELP_SUDOERS_BTN: "⚡ Sudoers"
 
-BACK_BTN: "⬅️ Back"
+BACK_BTN: "𝐁𝐚𝐜𝐤"
 
 # basically this string used in /command [bool]
 invalid_bool: "⚠️ <b>Invalid value.</b>\nUse 'enable' or 'disable'."
@@ -314,7 +315,7 @@ flood_seconds: "⏳ Slow down! Try again in {duration} seconds."
 flood_minutes: "⏳ Please wait {duration} minutes before using this command again."
 
 help_private_only: "🤖 Hi! For bot help and commands, please DM me directly — I'm more responsive in private chats!"
-help_main: "📚 <b>Help Menu</b>\n\nSelect a category below to explore detailed commands and their usage for managing, controlling, and customizing the bot."
+help_main: "📚 <b>Help Menu</b>\n\nPick a category below to see its commands.\nFor the full usage of one command send <code>/help play</code>."
 
 jump_no_active: "⚠️ No active track to jump within."
 jump_usage: "⚠️ Please provide seconds.\nExample: <code>{cmd} 120</code>"
@@ -488,7 +489,7 @@ play_download_failed: |
   Error: <code>{error}</code>
 
 play_added_to_queue_single: |
-  <u>ǫᴜᴇᴜᴇ #{index} ᴀᴅᴅᴇᴅ ♡</u>
+  ǫᴜᴇᴜᴇ #{index} ᴀᴅᴅᴇᴅ ♡
   ──────────────
   ♫ ᴛɪᴛʟᴇ: <a href="{url}">{title}</a>
   ⏳ ᴅᴜʀᴀᴛɪᴏɴ: {duration}
@@ -901,12 +902,10 @@ stream_download_fail: "❌ Failed to download.\nError: <code>{error}</code>"
 stream_play_fail: "❌ Failed to play the song."
 stream_now_playing: |
   💮 ɴᴏᴡ ᴘʟᴀʏɪɴɢ ♡
-
   ♫ ᴛʀᴀᴄᴋ: <a href="{url}">{title}</a>
-
   ⏳ ᴅᴜʀᴀᴛɪᴏɴ: {duration}
-
   ♡ ʀᴇǫᴜᴇꜱᴛᴇᴅ ʙʏ: {by}
+
 
 # 👑 Sudo / Owner Join Messages
 sudo_join_owner: "👑 {user} — owner of {bot} — just entered the chat."
