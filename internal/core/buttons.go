@@ -196,19 +196,17 @@ func ownerProfileLink() string {
 }
 
 // startAddBtnText is the label of the big "add me to a group" button on /start.
-const startAddBtnText = "𝐊𝐢𝐝𝐧𝐚𝐩 𝐌𝐞 𝐁𝐚𝐛𝐲"
+const startAddBtnText = "⛩ 𝐊𝐢𝐝𝐧𝐚𝐩 𝐌𝐞 𝐁𝐚𝐛𝐲 ⛩"
 
 // GetStartMarkup builds the /start keyboard:
 //
-//	[        Kidnap Me Baby        ]
-//	[ ♛ Owner ]      [ Updates ]
-//	[ Support ]      [  Help   ]
+//	[   ⛩ Kidnap Me Baby ⛩   ]
+//	[          Help          ]
+//	[ Updates ]    [ Support ]
+//	[ Language ]   [ ♛ Owner ]
 //
-// When the owner button is not available (see ownerProfileLink) the layout is
-//
-//	[        Kidnap Me Baby        ]
-//	[ Support ]      [ Updates ]
-//	[            Help           ]
+// When the owner button is not available (see ownerProfileLink) Language is
+// shown alone on the last row.
 func GetStartMarkup(chatID int64) tg.ReplyMarkup {
 	addBtn := tg.Button.URL(
 		startAddBtnText,
@@ -221,17 +219,17 @@ func GetStartMarkup(chatID int64) tg.ReplyMarkup {
 	updates := tg.Button.URL(F(chatID, "UPDATES_BTN"), config.SupportChannel)
 	support := tg.Button.URL(F(chatID, "SUPPORT_BTN"), config.SupportChat)
 	help := tg.Button.Data(F(chatID, "START_HELP_BTN"), "help_cb")
+	lang := tg.Button.Data(F(chatID, "START_LANG_BTN"), "lang:start")
 
-	kb := tg.NewKeyboard().AddRow(addBtn)
+	kb := tg.NewKeyboard().
+		AddRow(addBtn).
+		AddRow(help).
+		AddRow(updates, support)
 
 	if link := ownerProfileLink(); link != "" {
-		kb = kb.
-			AddRow(tg.Button.URL(ownerBtnText, link), updates).
-			AddRow(support, help)
+		kb = kb.AddRow(lang, tg.Button.URL(ownerBtnText, link))
 	} else {
-		kb = kb.
-			AddRow(support, updates).
-			AddRow(help)
+		kb = kb.AddRow(lang)
 	}
 
 	return kb.Build()
