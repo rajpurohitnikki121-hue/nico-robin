@@ -34,6 +34,12 @@ func langHandler(m *telegram.NewMessage) error {
 }
 
 func showLangMenu(m interface{}, isCallback bool) error {
+	return showLangMenuBack(m, isCallback, "set:main")
+}
+
+// showLangMenuBack shows the language menu; back is the callback the Back
+// button returns to (settings by default, the help menu when opened from help).
+func showLangMenuBack(m interface{}, isCallback bool, back string) error {
 	var chatID int64
 	if isCallback {
 		cb := m.(*telegram.CallbackQuery)
@@ -60,7 +66,7 @@ func showLangMenu(m interface{}, isCallback bool) error {
 	kb.NewColumn(2, btns...)
 
 	if isCallback {
-		kb.AddRow(telegram.Button.Data(F(chatID, "BACK_BTN"), "set:main"))
+		kb.AddRow(telegram.Button.Data(F(chatID, "BACK_BTN"), back))
 	}
 
 	text := F(chatID, "lang_select")
@@ -88,6 +94,12 @@ func langCallbackHandler(cb *telegram.CallbackQuery) error {
 	if lang == "select" {
 		return showLangMenu(cb, true)
 	}
+	if lang == "help" {
+		return showLangMenuBack(cb, true, "help_cb")
+	}
+	if lang == "start" {
+		return showLangMenuBack(cb, true, "start")
+	}
 
 	if isAdmin, _ := utils.IsChatAdmin(cb.Client, chatID, cb.SenderID); !isAdmin {
 		cb.Answer(F(chatID, "only_admin_cb"), opt)
@@ -111,6 +123,14 @@ func langCallbackHandler(cb *telegram.CallbackQuery) error {
 
 	msg := F(chatID, "lang_success", locales.Arg{"lang_name": langName})
 	cb.Answer(msg, opt)
-	cb.Edit(msg)
+	if chatID == cb.SenderID {
+		// Private chat: keep a way back to the main menu.
+		back := telegram.NewKeyboard().
+			AddRow(telegram.Button.Data(F(chatID, "BACK_BTN"), "start")).
+			Build()
+		cb.Edit(msg, &telegram.SendOptions{ParseMode: "HTML", ReplyMarkup: back})
+	} else {
+		cb.Edit(msg)
+	}
 	return telegram.ErrEndGroup
 }
