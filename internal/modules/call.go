@@ -19,6 +19,7 @@ package modules
 
 import (
 	"context"
+	"time"
 
 	"github.com/Laky-64/gologging"
 	"github.com/amarnathcjd/gogram/telegram"
@@ -26,7 +27,6 @@ import (
 	"main/internal/core"
 	state "main/internal/core/models"
 	"main/internal/locales"
-	"main/internal/platforms"
 	"main/internal/utils"
 	"main/ntgcalls"
 )
@@ -65,63 +65,99 @@ func streamEndHandler(
 	cid := r.ChatID
 	r.Parse()
 
-	var t *state.Track
-	var wasLooping bool
+	// Autoplay: when the queue has run out, queue a related song so the normal
+	// "play next" flow below continues the music.
 	if len(r.Queue()) == 0 && r.Loop() == 0 {
-		core.DeleteRoom(chatID)
-		if fin, err := core.Bot.SendMessage(cid, F(cid, "stream_queue_finished")); err == nil && fin != nil {
-			// The notice is only needed briefly; remove it automatically.
-			cleanScheduler.scheduleAfter(cid, fin.ID, queueFinishedDelay)
+		if next := autoplayNext(r); next != nil {
+			r.AddTracksToQueue([]*state.Track{next})
 		}
+	}
+
+	if len(r.Queue()) == 0 && r.Loop() == 0 {
+		finishQueue(chatID, cid)
 		return
-	} else {
-		wasLooping = r.Loop() > 0
-		t = r.NextTrack()
 	}
 
-	statusText := F(cid, "stream_downloading_next")
-	if wasLooping && t != nil && r.FilePath() != "" {
-		statusText = F(cid, "cb_replaying")
-	}
+	wasLooping := r.Loop() > 0
+	t := r.NextTrack()
 
-	statusMsg, err := core.Bot.SendMessage(
-		cid,
-		statusText,
+	var (
+		statusMsg *telegram.NewMessage
+		filePath  string
 	)
-	if err != nil {
-		gologging.ErrorF("[call.go] Failed to send msg: %v", err)
-	}
 
-	var filePath string
-	if wasLooping && t != nil && r.FilePath() != "" {
-		filePath = r.FilePath()
-	} else {
-		filePath, err = platforms.Download(context.Background(), t, statusMsg)
-	}
+	// Download the next song. If it cannot be downloaded (after retries) tell
+	// the chat and go on with the following song, so one bad song never drops
+	// the rest of the queue.
+	for {
+		if t == nil {
+			core.DeleteRoom(chatID)
+			return
+		}
 
-	if err != nil {
+		reuse := wasLooping && r.FilePath() != ""
+		statusText := F(cid, "stream_downloading_next")
+		if reuse {
+			statusText = F(cid, "cb_replaying")
+		}
+
+		var sendErr error
+		statusMsg, sendErr = core.Bot.SendMessage(cid, statusText)
+		if sendErr != nil {
+			gologging.ErrorF("[call.go] Failed to send msg: %v", sendErr)
+		}
+
+		var dlErr error
+		if reuse {
+			filePath = r.FilePath()
+		} else {
+			filePath, dlErr = downloadWithRetry(
+				context.Background(),
+				t,
+				statusMsg,
+			)
+		}
+		if dlErr == nil {
+			break
+		}
+
 		gologging.ErrorF(
 			"[onStreamEndHandler] Download failed for %s: %v",
 			t.URL,
-			err,
+			dlErr,
 		)
-		utils.EOR(statusMsg, F(cid, "stream_download_fail", locales.Arg{
-			"error": err.Error(),
-		}))
-		core.DeleteRoom(chatID)
 
-		return
+		if statusMsg != nil {
+			utils.EOR(statusMsg, F(cid, "stream_download_skipped", locales.Arg{
+				"title": utils.EscapeHTML(utils.ShortTitle(t.Title, 25)),
+				"error": utils.EscapeHTML(dlErr.Error()),
+			}))
+			cleanScheduler.scheduleAfter(cid, statusMsg.ID, queueFinishedDelay)
+		}
+
+		r.SetLoop(0)
+		wasLooping = false
+		if len(r.Queue()) == 0 {
+			finishQueue(chatID, cid)
+			return
+		}
+		t = r.NextTrack()
 	}
 
-	if err := r.Play(t, filePath, true); err != nil {
+	playErr := r.Play(t, filePath, true)
+	if playErr != nil {
+		// One more try: a voice chat hiccup is often gone after a moment.
+		time.Sleep(2 * time.Second)
+		playErr = r.Play(t, filePath, true)
+	}
+	if playErr != nil {
 		gologging.ErrorF(
 			"[onStreamEndHandler] Play failed for %s: %v",
 			t.URL,
-			err,
+			playErr,
 		)
 		utils.EOR(statusMsg, F(cid, "stream_play_fail"))
 		core.DeleteRoom(chatID)
-
 		return
 	}
 
@@ -146,4 +182,13 @@ func streamEndHandler(
 
 	statusMsg, _ = utils.EOR(statusMsg, msgText, opt)
 	r.SetStatusMsg(statusMsg)
+}
+
+// finishQueue ends the session when there is nothing left to play.
+func finishQueue(roomID, cid int64) {
+	core.DeleteRoom(roomID)
+	if fin, err := core.Bot.SendMessage(cid, F(cid, "stream_queue_finished")); err == nil && fin != nil {
+		// The notice is only needed briefly; remove it automatically.
+		cleanScheduler.scheduleAfter(cid, fin.ID, queueFinishedDelay)
+	}
 }
