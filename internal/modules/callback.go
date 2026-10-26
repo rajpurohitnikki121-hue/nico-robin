@@ -30,7 +30,6 @@ import (
 	"main/internal/core"
 	"main/internal/database"
 	"main/internal/locales"
-	"main/internal/platforms"
 	"main/internal/utils"
 )
 
@@ -42,9 +41,7 @@ func cancelHandler(cb *tg.CallbackQuery) error {
 		return tg.ErrEndGroup
 	}
 
-	if cancel, ok := downloadCancels[chatID]; ok {
-		cancel()
-		delete(downloadCancels, chatID)
+	if cancelDownload(chatID) {
 		cb.Answer(F(chatID, "download_cancelled"), opt)
 	} else {
 		cb.Answer(F(chatID, "no_download_to_cancel"), opt)
@@ -278,7 +275,7 @@ func handleSkipAction(cb *tg.CallbackQuery, r *core.RoomState) error {
 		gologging.ErrorF("Failed to send status message: %v", err)
 	}
 
-	path, err := platforms.Download(context.Background(), t, statusMsg)
+	path, err := downloadWithRetry(context.Background(), t, statusMsg)
 	if err != nil {
 		gologging.ErrorF("Download failed for %s: %v", t.URL, err)
 		utils.EOR(statusMsg, F(chatID, "stream_download_fail", locales.Arg{
