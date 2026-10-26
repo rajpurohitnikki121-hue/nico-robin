@@ -26,7 +26,6 @@ import (
 
 	"main/internal/core"
 	"main/internal/locales"
-	"main/internal/platforms"
 	"main/internal/utils"
 )
 
@@ -154,7 +153,7 @@ func handleSkip(m *telegram.NewMessage, cplay bool) error {
 		gologging.ErrorF("[skip.go] err: %v", err)
 	}
 
-	path, err := platforms.Download(context.Background(), t, statusMsg)
+	path, err := downloadWithRetry(context.Background(), t, statusMsg)
 	if err != nil {
 		txt := F(chatID, "stream_download_fail", locales.Arg{
 			"error": err.Error(),
