@@ -453,6 +453,11 @@ nothumb_already: "ℹ️ Thumbnail display is already {action}."
 nothumb_update_fail: "⚠️ <b>Failed to update thumbnail setting.</b>"
 nothumb_updated: "🖼️ Thumbnail display has been {action}."
 
+autoplay_fetch_fail: "⚠️ <b>Failed to fetch the autoplay setting.</b>"
+autoplay_already: "ℹ️ Autoplay is already {action}."
+autoplay_update_fail: "⚠️ <b>Failed to update the autoplay setting.</b>"
+autoplay_updated: "🔁 Autoplay has been {action}. When the queue ends, I will play a related song automatically."
+
 cmddelete_status: "🗑️ <b>Command Delete Control</b>\n\nWhen enabled, I will automatically delete command messages.\nUsage: {cmd} [enable|disable]\nCurrent state: {action}"
 cmddelete_updated: "🗑️ Command deletion has been {action}."
 
@@ -899,6 +904,7 @@ stream_channelid_fail: "⚠️ Failed to get your connected channel’s ID."
 stream_queue_finished: "🎵 <b>Queue Finished!</b>\n\nNo more songs to play. Use /play to add more tracks! 🎶"
 stream_downloading_next: "📥 Downloading your next track..."
 stream_download_fail: "❌ Failed to download.\nError: <code>{error}</code>"
+stream_download_skipped: "⚠️ Couldn't play <b>{title}</b>, so I skipped it.\n<code>{error}</code>"
 stream_play_fail: "❌ Failed to play the song."
 stream_now_playing: |
   💮 ɴᴏᴡ ᴘʟᴀʏɪɴɢ ♡
