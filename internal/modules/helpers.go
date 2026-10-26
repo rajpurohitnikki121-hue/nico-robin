@@ -36,8 +36,6 @@ import (
 	"main/internal/utils"
 )
 
-var downloadCancels = make(map[int64]func())
-
 func getEffectiveRoom(m *tg.NewMessage, cplay bool) (*core.RoomState, error) {
 	chatID := m.ChannelID()
 
