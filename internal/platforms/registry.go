@@ -217,11 +217,29 @@ func processReplyChain(m *telegram.NewMessage) ([]*state.Track, error) {
 }
 
 // Download attempts to download a track using available downloaders
+// downloadSlots limits how many downloads run at the same time, so a burst of
+// requests from many chats queues up instead of overloading the bot. It can be
+// changed with the MAX_PARALLEL_DOWNLOADS environment variable (default 4).
+var downloadSlots = func() chan struct{} {
+	n := 4
+	if v, err := strconv.Atoi(os.Getenv("MAX_PARALLEL_DOWNLOADS")); err == nil && v > 0 {
+		n = v
+	}
+	return make(chan struct{}, n)
+}()
+
 func Download(
 	ctx context.Context,
 	track *state.Track,
 	statusMsg *telegram.NewMessage,
 ) (string, error) {
+	select {
+	case downloadSlots <- struct{}{}:
+		defer func() { <-downloadSlots }()
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
+
 	gologging.Debug(
 		"Download requested for track: " + track.ID + " | Source: " + string(
 			track.Source,
