@@ -25,7 +25,6 @@ import (
 	"github.com/amarnathcjd/gogram/telegram"
 
 	"main/internal/core"
-	state "main/internal/core/models"
 	"main/internal/locales"
 	"main/internal/utils"
 	"main/ntgcalls"
@@ -64,14 +63,6 @@ func streamEndHandler(
 
 	cid := r.ChatID
 	r.Parse()
-
-	// Autoplay: when the queue has run out, queue a related song so the normal
-	// "play next" flow below continues the music.
-	if len(r.Queue()) == 0 && r.Loop() == 0 {
-		if next := autoplayNext(r); next != nil {
-			r.AddTracksToQueue([]*state.Track{next})
-		}
-	}
 
 	if len(r.Queue()) == 0 && r.Loop() == 0 {
 		finishQueue(chatID, cid)
