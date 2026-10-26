@@ -7,6 +7,7 @@ import (
 	"github.com/Laky-64/gologging"
 	tg "github.com/amarnathcjd/gogram/telegram"
 
+	"main/internal/config"
 	"main/internal/core"
 	"main/internal/database"
 )
@@ -94,6 +95,10 @@ func (s *CleanScheduler) scheduleAfter(
 	delay time.Duration,
 ) {
 	if messageID == 0 {
+		return
+	}
+	// Never clean the logger group: its play logs must stay.
+	if config.LoggerID != 0 && chatID == config.LoggerID {
 		return
 	}
 	s.mu.Lock()
