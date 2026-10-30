@@ -476,6 +476,11 @@ var handlers = []MsgHandlerDef{
 		Filters: []telegram.Filter{superGroupFilter, adminFilter},
 	},
 	{
+		Pattern: "autoplay",
+		Handler: autoplayHandler,
+		Filters: []telegram.Filter{superGroupFilter, adminFilter},
+	},
+	{
 		Pattern: "privacy",
 		Handler: privacyHandler,
 		Filters: []telegram.Filter{ignoreChannelFilter},
