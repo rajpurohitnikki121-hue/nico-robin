@@ -453,6 +453,10 @@ nothumb_already: "ℹ️ Thumbnail display is already {action}."
 nothumb_update_fail: "⚠️ <b>Failed to update thumbnail setting.</b>"
 nothumb_updated: "🖼️ Thumbnail display has been {action}."
 
+autoplay_fetch_fail: "⚠️ <b>Failed to fetch the autoplay setting.</b>"
+autoplay_already: "ℹ️ Autoplay is already {action}."
+autoplay_update_fail: "⚠️ <b>Failed to update the autoplay setting.</b>"
+autoplay_updated: "🔁 Autoplay has been {action}. When the queue ends, I will play a related song automatically."
 
 cmddelete_status: "🗑️ <b>Command Delete Control</b>\n\nWhen enabled, I will automatically delete command messages.\nUsage: {cmd} [enable|disable]\nCurrent state: {action}"
 cmddelete_updated: "🗑️ Command deletion has been {action}."
