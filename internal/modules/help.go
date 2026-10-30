@@ -90,6 +90,15 @@ var helpGroups = []helpGroup{
 		},
 	},
 	{
+		id: "auto", label: "Autoplay",
+		about: "Keep the music going. When the queue ends I play a related song by myself. You can also tap the Auto button on the player.",
+		lines: []helpLine{
+			{"/autoplay", "Turn autoplay on or off."},
+			{"/autoplay enable", "Turn autoplay on."},
+			{"/autoplay disable", "Turn autoplay off."},
+		},
+	},
+	{
 		id: "ctrl", label: "Controls",
 		about: "Control the song that is playing. " + helpChannelNote,
 		lines: []helpLine{
