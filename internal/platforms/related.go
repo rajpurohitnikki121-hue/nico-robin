@@ -3,6 +3,9 @@ package platforms
 import (
 	"errors"
 	"fmt"
+	"strings"
+
+	"github.com/Laky-64/gologging"
 
 	state "main/internal/core/models"
 )
@@ -58,7 +61,14 @@ func RelatedTrack(
 
 	// 2) fall back to a normal search for the title, so autoplay still goes on
 	// when the Mix cannot be read
+	if mixErr != nil {
+		gologging.WarnF("[autoplay] mix failed (%v), using search", mixErr)
+	}
 	query := t.Title
+	if i := strings.IndexAny(query, "|(["); i > 3 {
+		query = query[:i]
+	}
+	query = strings.TrimSpace(query) + " songs"
 	if res, err := yt.VideoSearch(query); err == nil {
 		if next := pick(res); next != nil {
 			return next, nil
@@ -79,6 +89,8 @@ func fetchRelatedMix(videoID string, limit int) ([]*state.Track, error) {
 			"client": map[string]any{
 				"clientName":    innerTubeClientName,
 				"clientVersion": innerTubeClientVersion,
+				"hl":            "en-IN",
+				"gl":            "IN",
 			},
 		},
 		"videoId":    videoID,
