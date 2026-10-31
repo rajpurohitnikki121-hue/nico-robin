@@ -25,6 +25,12 @@ func init() {
 		on, _ := database.AutoPlayEnabled(chatID)
 		return on
 	}
+	// Every new voice chat session starts with autoplay OFF.
+	core.OnSessionStart = func(chatID int64) {
+		if on, err := database.AutoPlayEnabled(chatID); err == nil && on {
+			_ = database.SetAutoPlay(chatID, false)
+		}
+	}
 	core.ThumbOn = func(chatID int64) bool {
 		off, err := database.ThumbnailsDisabled(chatID)
 		return err != nil || !off
@@ -60,19 +66,19 @@ func autoplayHandler(m *tg.NewMessage) error {
 		}
 	}
 
-	action := utils.IfElse(value, "enabled", "disabled")
+	msgKey := utils.IfElse(value, "autoplay_on_cb", "autoplay_off_cb")
 
-	if value == current {
-		m.Reply(F(chatID, "autoplay_already", locales.Arg{"action": action}))
-		return tg.ErrEndGroup
+	if value != current {
+		if err := database.SetAutoPlay(chatID, value); err != nil {
+			m.Reply(F(chatID, "autoplay_update_fail"))
+			return tg.ErrEndGroup
+		}
 	}
 
-	if err := database.SetAutoPlay(chatID, value); err != nil {
-		m.Reply(F(chatID, "autoplay_update_fail"))
-		return tg.ErrEndGroup
+	m.Reply(F(chatID, msgKey))
+	if r, ok := core.GetRoom(chatID, nil, false); ok {
+		refreshPlayMarkup(r)
 	}
-
-	m.Reply(F(chatID, "autoplay_updated", locales.Arg{"action": action}))
 	return tg.ErrEndGroup
 }
 
