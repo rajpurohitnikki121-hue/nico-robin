@@ -29,6 +29,11 @@ import (
 	"main/ntgcalls"
 )
 
+// OnSessionStart is called when a voice chat session starts from scratch (the
+// first song of a new session). The modules package uses it to switch autoplay
+// off again, so autoplay is only on when someone turns it on during a session.
+var OnSessionStart func(chatID int64)
+
 const (
 	minSpeed         = 0.50
 	maxSpeed         = 4.0
@@ -56,7 +61,8 @@ func (r *RoomState) Play(t *state.Track, path string, force ...bool) error {
 		return nil
 	}
 
-	wasPlaying := r.playing && r.track != nil
+	// A brand new session: nothing is loaded in this room yet.
+	fresh := r.track == nil && !r.playing
 
 	if r.track != t {
 		r.loop = 0
@@ -74,7 +80,10 @@ func (r *RoomState) Play(t *state.Track, path string, force ...bool) error {
 	// is no longer really in the voice chat (it was removed, or the chat was
 	// closed). Setting new sources on that dead call would "succeed" without
 	// joining, so drop it first and let play() connect again.
-	if !wasPlaying && r.Assistant != nil && r.Assistant.Ntg != nil {
+	if fresh && OnSessionStart != nil {
+		OnSessionStart(r.ChatID)
+	}
+	if fresh && r.Assistant != nil && r.Assistant.Ntg != nil {
 		if r.Assistant.Ntg.Calls()[r.ID] != nil {
 			_ = r.Assistant.Ntg.Stop(r.ID)
 		}
