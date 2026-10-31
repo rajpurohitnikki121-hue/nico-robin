@@ -35,22 +35,97 @@ func RelatedTrack(
 		videoID = res[0].ID
 	}
 
-	mix, err := yt.fetchMixPlaylist("RD"+videoID, 25)
-	if err != nil {
+	pick := func(list []*state.Track) *state.Track {
+		for _, c := range list {
+			if c == nil || c.ID == "" || c.ID == videoID || skip[c.ID] {
+				continue
+			}
+			if c.Duration <= 0 || (maxDuration > 0 && c.Duration > maxDuration) {
+				continue
+			}
+			cp := *c // do not modify the cached track
+			cp.Video = false
+			return &cp
+		}
+		return nil
+	}
+
+	// 1) the YouTube Mix (radio) of the song
+	mix, mixErr := fetchRelatedMix(videoID, 25)
+	if next := pick(mix); next != nil {
+		return next, nil
+	}
+
+	// 2) fall back to a normal search for the title, so autoplay still goes on
+	// when the Mix cannot be read
+	query := t.Title
+	if res, err := yt.VideoSearch(query); err == nil {
+		if next := pick(res); next != nil {
+			return next, nil
+		}
+	}
+
+	if mixErr != nil {
+		return nil, fmt.Errorf("mix failed: %w", mixErr)
+	}
+	return nil, errors.New("no related track found")
+}
+
+// fetchRelatedMix reads the "RD<videoId>" Mix. Unlike a plain playlist call it
+// also sends the video id, which YouTube needs to build the Mix reliably.
+func fetchRelatedMix(videoID string, limit int) ([]*state.Track, error) {
+	payload := map[string]any{
+		"context": map[string]any{
+			"client": map[string]any{
+				"clientName":    innerTubeClientName,
+				"clientVersion": innerTubeClientVersion,
+			},
+		},
+		"videoId":    videoID,
+		"playlistId": "RD" + videoID,
+	}
+
+	var result map[string]any
+	if err := yt.callInnerTube("next", payload, &result); err != nil {
 		return nil, err
 	}
 
-	for _, c := range mix {
-		if c == nil || c.ID == "" || c.ID == videoID || skip[c.ID] {
-			continue
-		}
-		if c.Duration <= 0 || (maxDuration > 0 && c.Duration > maxDuration) {
-			continue
-		}
-		cp := *c // do not modify the cached track
-		cp.Video = false
-		return &cp, nil
+	items, ok := dig(
+		result,
+		"contents",
+		"twoColumnWatchNextResults",
+		"playlist",
+		"playlist",
+		"contents",
+	).([]any)
+	if !ok {
+		return nil, errors.New("mix contents not found")
 	}
 
-	return nil, errors.New("no related track found")
+	var tracks []*state.Track
+	for _, item := range items {
+		if limit > 0 && len(tracks) >= limit {
+			break
+		}
+		vid, ok := dig(item, "playlistPanelVideoRenderer").(map[string]any)
+		if !ok {
+			continue
+		}
+		id := safeString(vid["videoId"])
+		if id == "" {
+			continue
+		}
+		tracks = append(tracks, &state.Track{
+			URL:      "https://www.youtube.com/watch?v=" + id,
+			Title:    safeString(dig(vid, "title", "simpleText")),
+			ID:       id,
+			Artwork:  getThumbnailURL(vid),
+			Duration: parseDuration(safeString(dig(vid, "lengthText", "simpleText"))),
+			Source:   PlatformYouTube,
+		})
+	}
+	if len(tracks) == 0 {
+		return nil, errors.New("mix is empty")
+	}
+	return tracks, nil
 }
