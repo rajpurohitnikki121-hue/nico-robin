@@ -34,6 +34,10 @@ import (
 // off again, so autoplay is only on when someone turns it on during a session.
 var OnSessionStart func(chatID int64)
 
+// OnTrackStarted is called (in its own goroutine) after a song started
+// playing; the modules package uses it to download the next queued song early.
+var OnTrackStarted func(r *RoomState)
+
 const (
 	minSpeed         = 0.50
 	maxSpeed         = 4.0
@@ -101,6 +105,10 @@ func (r *RoomState) Play(t *state.Track, path string, force ...bool) error {
 
 	// The track has started: its "Added to Queue" message is obsolete now.
 	DeleteQueueMsg(t)
+
+	if OnTrackStarted != nil {
+		go OnTrackStarted(r)
+	}
 
 	return nil
 }
