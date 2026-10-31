@@ -98,6 +98,9 @@ func handleSkip(m *telegram.NewMessage, cplay bool) error {
 		skipCount = parsed + 1
 	}
 
+	// With autoplay on, skipping the last song continues with a related one.
+	autoplayQueueIfEmpty(r)
+
 	if len(r.Queue()) == 0 {
 
 		scheduleOldPlayingMessage(r)
@@ -188,7 +191,7 @@ func handleSkip(m *telegram.NewMessage, cplay bool) error {
 	msg := F(chatID, "stream_now_playing", locales.Arg{
 		"url":      t.URL,
 		"title":    safeTitle,
-		"duration": utils.FormatDuration(t.Duration),
+		"duration": utils.FormatTime(t.Duration),
 		"by":       t.Requester,
 	})
 
@@ -198,7 +201,7 @@ func handleSkip(m *telegram.NewMessage, cplay bool) error {
 	}
 
 	if t.Artwork != "" && shouldShowThumb(chatID) {
-		opt.Media = utils.CleanURL(t.Artwork)
+		opt.Media = thumbMedia(t)
 	}
 
 	var newStatusMsg *telegram.NewMessage
@@ -211,6 +214,7 @@ func handleSkip(m *telegram.NewMessage, cplay bool) error {
 	if newStatusMsg != nil {
 		r.SetStatusMsg(newStatusMsg)
 	}
+	notifyAutoplayStart(chatID, t)
 
 	return telegram.ErrEndGroup
 }
