@@ -455,6 +455,11 @@ nothumb_already: "ℹ️ Thumbnail display is already {action}."
 nothumb_update_fail: "⚠️ <b>Failed to update thumbnail setting.</b>"
 nothumb_updated: "🖼️ Thumbnail display has been {action}."
 
+autoplay_on_cb: "🔁 Autoplay is ON\nI will play songs automatically when the queue is empty."
+autoplay_off_cb: "⏹ Autoplay is OFF\nI will not play songs automatically."
+thumb_on_cb: "🖼 Thumbnail is ON\nI will show the thumbnail card with songs."
+thumb_off_cb: "🖼 Thumbnail is OFF\nI will not show thumbnails with songs."
+thumb_admin_only_cb: "⚠️ Only admins can change the thumbnail setting."
 autoplay_fetch_fail: "⚠️ <b>Failed to fetch the autoplay setting.</b>"
 autoplay_already: "ℹ️ Autoplay is already {action}."
 autoplay_update_fail: "⚠️ <b>Failed to update the autoplay setting.</b>"
@@ -941,8 +946,8 @@ unmute_success: |
 
 
 # 🔊 Voice Chat Events
-voicechat_ended: "<b>⚠️ Video chat ended</b>\n\n<i>⏰ Duration: {duration}</i>"
-voicechat_started: "<b>♻️ Voice chat started!</b>\n\n<i>Use /play [song name] to play music.</i>"
+voicechat_ended: "<b>🌷 Video chat ended</b>\n\n<i>⏲ Duration: {duration}</i>"
+voicechat_started: "<b>🎧 Voice chat started!</b>\n\n<i>Use /play [song name] to play music.</i>"
 
 # Commands help
 help_owner: |
