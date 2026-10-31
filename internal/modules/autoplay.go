@@ -78,7 +78,7 @@ func autoplayHandler(m *tg.NewMessage) error {
 
 // handleAutoplayAction is the "Auto" button on the player card: it flips
 // autoplay for the chat and shows the new state.
-func handleAutoplayAction(cb *tg.CallbackQuery) error {
+func handleAutoplayAction(cb *tg.CallbackQuery, r *core.RoomState) error {
 	opt := &tg.CallbackOptions{Alert: true}
 	chatID := cb.ChannelID()
 
@@ -93,16 +93,25 @@ func handleAutoplayAction(cb *tg.CallbackQuery) error {
 		return tg.ErrEndGroup
 	}
 
-	action := utils.IfElse(!current, "enabled", "disabled")
-	cb.Answer(F(chatID, "autoplay_updated", locales.Arg{"action": action}), opt)
+	cb.Answer(F(chatID, utils.IfElse(!current, "autoplay_on_cb", "autoplay_off_cb")), opt)
+	refreshPlayMarkup(r)
 	return tg.ErrEndGroup
 }
 
 // handleThumbAction is the "Thumb" button on the player card: it turns the
-// thumbnails of this chat on or off.
-func handleThumbAction(cb *tg.CallbackQuery) error {
+// thumbnails of this chat on or off. Only chat admins (and the bot owner or
+// sudo users) may use it; autoplay stays open to admins and authorised users.
+func handleThumbAction(cb *tg.CallbackQuery, r *core.RoomState) error {
 	opt := &tg.CallbackOptions{Alert: true}
 	chatID := cb.ChannelID()
+
+	if !isOwnerOrSudo(cb.SenderID) {
+		isAdmin, err := utils.IsChatAdmin(cb.Client, chatID, cb.SenderID)
+		if err != nil || !isAdmin {
+			cb.Answer(F(chatID, "thumb_admin_only_cb"), opt)
+			return tg.ErrEndGroup
+		}
+	}
 
 	disabled, err := database.ThumbnailsDisabled(chatID)
 	if err != nil {
@@ -115,10 +124,28 @@ func handleThumbAction(cb *tg.CallbackQuery) error {
 		return tg.ErrEndGroup
 	}
 
-	// The thumbnail was hidden before, so it is shown (enabled) now.
-	action := utils.IfElse(disabled, "enabled", "disabled")
-	cb.Answer(F(chatID, "nothumb_updated", locales.Arg{"action": action}), opt)
+	// It was hidden before (disabled), so it is ON now.
+	cb.Answer(F(chatID, utils.IfElse(disabled, "thumb_on_cb", "thumb_off_cb")), opt)
+	refreshPlayMarkup(r)
 	return tg.ErrEndGroup
+}
+
+// refreshPlayMarkup redraws the player buttons right away, so the ON/OFF
+// labels change without waiting for the next monitor tick (which also skips
+// paused rooms).
+func refreshPlayMarkup(r *core.RoomState) {
+	if r == nil {
+		return
+	}
+	statusMsg := r.StatusMsg()
+	if statusMsg == nil {
+		return
+	}
+	r.Parse()
+	statusMsg.Edit(statusMsg.Text(), &tg.SendOptions{
+		ReplyMarkup: core.GetPlayMarkup(r.ChatID, r, false),
+		Entities:    statusMsg.Message.Entities,
+	})
 }
 
 // autoplayQueueIfEmpty adds an autoplay track when nothing is queued after the
