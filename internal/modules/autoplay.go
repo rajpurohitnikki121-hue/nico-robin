@@ -78,6 +78,9 @@ func autoplayHandler(m *tg.NewMessage) error {
 	m.Reply(F(chatID, msgKey))
 	if r, ok := core.GetRoom(chatID, nil, false); ok {
 		refreshPlayMarkup(r)
+		if value {
+			go prefetchNext(r)
+		}
 	}
 	return tg.ErrEndGroup
 }
@@ -101,6 +104,9 @@ func handleAutoplayAction(cb *tg.CallbackQuery, r *core.RoomState) error {
 
 	cb.Answer(F(chatID, utils.IfElse(!current, "autoplay_on_cb", "autoplay_off_cb")), opt)
 	refreshPlayMarkup(r)
+	if !current {
+		go prefetchNext(r)
+	}
 	return tg.ErrEndGroup
 }
 
@@ -245,6 +251,45 @@ func autoplayNext(r *core.RoomState) *state.Track {
 		return nil
 	}
 
+	// Picked (and maybe downloaded) earlier while the song was playing.
+	autoplayPrepMu.Lock()
+	defer autoplayPrepMu.Unlock()
+	if ok, v := r.GetData("autoplay_pre"); ok {
+		r.DeleteData("autoplay_pre")
+		if t, ok := v.(*state.Track); ok && t != nil {
+			return t
+		}
+	}
+	return autoplayPick(r)
+}
+
+var autoplayPrepMu sync.Mutex
+
+// autoplayPrepare picks the next autoplay song ahead of time (while the
+// current one is still playing) so the end of the song is not delayed by the
+// lookup or the download. It returns nil when autoplay is off.
+func autoplayPrepare(r *core.RoomState) *state.Track {
+	enabled, err := database.AutoPlayEnabled(r.ChatID)
+	if err != nil || !enabled {
+		return nil
+	}
+
+	autoplayPrepMu.Lock()
+	defer autoplayPrepMu.Unlock()
+	if ok, v := r.GetData("autoplay_pre"); ok {
+		if t, ok := v.(*state.Track); ok && t != nil {
+			return t
+		}
+	}
+	next := autoplayPick(r)
+	if next != nil {
+		r.SetData("autoplay_pre", next)
+	}
+	return next
+}
+
+// autoplayPick looks up a related song (see platforms.RelatedTrack).
+func autoplayPick(r *core.RoomState) *state.Track {
 	cur := r.Track()
 	if cur == nil {
 		return nil
