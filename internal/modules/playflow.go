@@ -84,6 +84,16 @@ func downloadWithRetry(
 	t *state.Track,
 	statusMsg *telegram.NewMessage,
 ) (string, error) {
+	// Build the player-card thumbnail while the song downloads.
+	if t.Artwork != "" {
+		go thumbMedia(t)
+	}
+	release, lockErr := lockTrack(ctx, t.ID)
+	if lockErr != nil {
+		return "", lockErr
+	}
+	defer release()
+
 	var lastErr error
 	for attempt := 1; attempt <= downloadAttempts; attempt++ {
 		path, err := platforms.Download(ctx, t, statusMsg)
