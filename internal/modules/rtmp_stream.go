@@ -220,7 +220,7 @@ func handleStream(m *tg.NewMessage, force bool) error {
 	}
 
 	if track.Artwork != "" {
-		opt.Media = utils.CleanURL(track.Artwork)
+		opt.Media = thumbMedia(track)
 	}
 
 	utils.EOR(replyMsg, msgText, opt)
