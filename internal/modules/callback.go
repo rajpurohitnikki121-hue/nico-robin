@@ -111,6 +111,8 @@ func roomHandle(cb *tg.CallbackQuery) error {
 		return handleReplayAction(cb, r)
 	case action == "autoplay":
 		return handleAutoplayAction(cb)
+	case action == "thumb":
+		return handleThumbAction(cb)
 	case action == "skip":
 		return handleSkipAction(cb, r)
 	case strings.HasPrefix(action, "pn"):
@@ -228,7 +230,7 @@ func handleReplayAction(cb *tg.CallbackQuery, r *core.RoomState) error {
 	msgText := F(chatID, "stream_now_playing", locales.Arg{
 		"url":      track.URL,
 		"title":    utils.EscapeHTML(utils.ShortTitle(track.Title, 25)),
-		"duration": utils.FormatDuration(track.Duration),
+		"duration": utils.FormatTime(track.Duration),
 		"by":       track.Requester,
 	})
 
@@ -237,7 +239,7 @@ func handleReplayAction(cb *tg.CallbackQuery, r *core.RoomState) error {
 		ReplyMarkup: core.GetPlayMarkup(chatID, r, false),
 	}
 	if track.Artwork != "" && shouldShowThumb(chatID) {
-		sendOpt.Media = utils.CleanURL(track.Artwork)
+		sendOpt.Media = thumbMedia(track)
 	}
 
 	statusMsg, _ = utils.EOR(statusMsg, msgText, sendOpt)
@@ -256,6 +258,9 @@ func handleSkipAction(cb *tg.CallbackQuery, r *core.RoomState) error {
 	opt := &tg.CallbackOptions{Alert: true}
 	chatID := cb.ChannelID()
 	gologging.InfoF("Callback → skip, chatID=%d", chatID)
+
+	// With autoplay on, skipping the last song continues with a related one.
+	autoplayQueueIfEmpty(r)
 
 	if len(r.Queue()) == 0 {
 		scheduleOldPlayingMessage(r)
@@ -304,7 +309,7 @@ func handleSkipAction(cb *tg.CallbackQuery, r *core.RoomState) error {
 	msgText := F(chatID, "stream_now_playing", locales.Arg{
 		"url":      t.URL,
 		"title":    utils.EscapeHTML(utils.ShortTitle(t.Title, 25)),
-		"duration": utils.FormatDuration(t.Duration),
+		"duration": utils.FormatTime(t.Duration),
 		"by":       t.Requester,
 	})
 
@@ -313,7 +318,7 @@ func handleSkipAction(cb *tg.CallbackQuery, r *core.RoomState) error {
 		ReplyMarkup: core.GetPlayMarkup(chatID, r, false),
 	}
 	if t.Artwork != "" && shouldShowThumb(chatID) {
-		sendOpt.Media = utils.CleanURL(t.Artwork)
+		sendOpt.Media = thumbMedia(t)
 	}
 
 	statusMsg, err = utils.EOR(statusMsg, msgText, sendOpt)
@@ -325,6 +330,7 @@ func handleSkipAction(cb *tg.CallbackQuery, r *core.RoomState) error {
 	}
 
 	r.SetStatusMsg(statusMsg)
+	notifyAutoplayStart(chatID, t)
 	statusMsg.Reply(F(chatID, "cb_skip_edited", locales.Arg{
 		"user": utils.MentionHTML(cb.Sender),
 	}))
