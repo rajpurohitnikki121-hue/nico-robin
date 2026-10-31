@@ -110,9 +110,9 @@ func roomHandle(cb *tg.CallbackQuery) error {
 	case action == "replay":
 		return handleReplayAction(cb, r)
 	case action == "autoplay":
-		return handleAutoplayAction(cb)
+		return handleAutoplayAction(cb, r)
 	case action == "thumb":
-		return handleThumbAction(cb)
+		return handleThumbAction(cb, r)
 	case action == "skip":
 		return handleSkipAction(cb, r)
 	case strings.HasPrefix(action, "pn"):
