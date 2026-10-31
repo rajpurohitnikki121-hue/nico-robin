@@ -24,6 +24,7 @@ import (
 	"github.com/amarnathcjd/gogram/telegram"
 
 	"main/internal/config"
+	"main/internal/core"
 	"main/internal/database"
 	"main/internal/locales"
 	"main/internal/utils"
@@ -54,6 +55,9 @@ func showLangMenuBack(m interface{}, isCallback bool, back string) error {
 		lang = config.DefaultLang
 	}
 
+	// Blue and green buttons; the colours swap every few seconds.
+	tint := core.NewTinter()
+
 	kb := telegram.NewKeyboard()
 	var btns []telegram.KeyboardButton
 	for _, l := range locales.GetAvailableLanguages() {
@@ -61,12 +65,12 @@ func showLangMenuBack(m interface{}, isCallback bool, back string) error {
 		if l == lang {
 			name = "✔️ " + name
 		}
-		btns = append(btns, telegram.Button.Data(name, "lang:"+l))
+		btns = append(btns, tint(telegram.Button.Data(name, "lang:"+l)))
 	}
 	kb.NewColumn(2, btns...)
 
 	if isCallback {
-		kb.AddRow(telegram.Button.Data(F(chatID, "BACK_BTN"), back))
+		kb.AddRow(tint(telegram.Button.Data(F(chatID, "BACK_BTN"), back)))
 	}
 
 	text := F(chatID, "lang_select")
