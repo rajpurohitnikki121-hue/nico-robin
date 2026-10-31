@@ -40,21 +40,11 @@ func prefetchNext(r *core.RoomState) {
 		return
 	}
 
-	prefetchMu.Lock()
-	if _, busy := prefetchOn[t.ID]; busy {
-		prefetchMu.Unlock()
+	release, ok := tryLockTrack(t.ID)
+	if !ok {
 		return
 	}
-	done := make(chan struct{})
-	prefetchOn[t.ID] = done
-	prefetchMu.Unlock()
-
-	defer func() {
-		prefetchMu.Lock()
-		delete(prefetchOn, t.ID)
-		prefetchMu.Unlock()
-		close(done)
-	}()
+	defer release()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
@@ -65,17 +55,41 @@ func prefetchNext(r *core.RoomState) {
 	gologging.DebugF("[prefetch] %q is ready", t.Title)
 }
 
-// waitPrefetch blocks while the same song is being prefetched, so it is not
-// downloaded twice at the same time.
-func waitPrefetch(ctx context.Context, id string) {
+// Per-song download lock: the same song is never downloaded twice at the same
+// time (early download and a skip / song end asking for it together).
+
+func tryLockTrack(id string) (release func(), ok bool) {
 	prefetchMu.Lock()
-	done, busy := prefetchOn[id]
-	prefetchMu.Unlock()
-	if !busy {
-		return
+	defer prefetchMu.Unlock()
+	if _, busy := prefetchOn[id]; busy {
+		return nil, false
 	}
-	select {
-	case <-done:
-	case <-ctx.Done():
+	done := make(chan struct{})
+	prefetchOn[id] = done
+	return func() {
+		prefetchMu.Lock()
+		delete(prefetchOn, id)
+		prefetchMu.Unlock()
+		close(done)
+	}, true
+}
+
+// lockTrack waits until no other download of the song is running.
+func lockTrack(ctx context.Context, id string) (release func(), err error) {
+	for {
+		if rel, ok := tryLockTrack(id); ok {
+			return rel, nil
+		}
+		prefetchMu.Lock()
+		done := prefetchOn[id]
+		prefetchMu.Unlock()
+		if done == nil {
+			continue
+		}
+		select {
+		case <-done:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
 	}
 }
