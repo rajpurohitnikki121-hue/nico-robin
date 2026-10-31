@@ -154,6 +154,31 @@ var helpGroups = []helpGroup{
 		},
 	},
 	{
+		id: "bcast", label: "Broadcast",
+		about: "Send a message to every chat and user of the bot. Owner only.",
+		lines: []helpLine{
+			{"/broadcast [text]", "Broadcast a text message."},
+			{"/broadcast (reply)", "Broadcast the message you reply to."},
+			{"--nochat", "Skip groups."},
+			{"--nouser", "Skip users."},
+			{"--copy", "Send without the forwarded tag."},
+			{"--pin, --pinloud", "Pin the message (silent or with sound)."},
+			{"--limit [n]", "Stop after n messages."},
+			{"--delay [sec]", "Wait between messages."},
+			{"/broadcast -cancel", "Stop a running broadcast."},
+		},
+	},
+	{
+		id: "thumb", label: "Thumbnail",
+		about: "Show or hide the song artwork on the player and now-playing messages.",
+		lines: []helpLine{
+			{"/nothumb", "Show the current setting."},
+			{"/nothumb enable", "Hide the artwork."},
+			{"/nothumb disable", "Show the artwork again."},
+			{"Thumb button", "Tap Thumb ON/OFF on the player to switch."},
+		},
+	},
+	{
 		id: "stream", label: "Stream",
 		about: "Stream an RTMP source in the voice chat.",
 		lines: []helpLine{
@@ -209,15 +234,18 @@ func helpGroupByID(id string) *helpGroup {
 // helpMainMarkup is the category grid: three buttons per row (the last one is
 // Language), then Back.
 func helpMainMarkup(chatID int64) *tg.ReplyInlineMarkup {
+	// Blue and green buttons; the colours swap every few seconds.
+	tint := core.NewTinter()
+
 	btns := make([]tg.KeyboardButton, 0, len(helpGroups)+1)
 	for _, g := range helpGroups {
-		btns = append(btns, tg.Button.Data(boldFont(g.label), "help:g:"+g.id))
+		btns = append(btns, tint(tg.Button.Data(boldFont(g.label), "help:g:"+g.id)))
 	}
-	btns = append(btns, tg.Button.Data(boldFont("Language"), "lang:help"))
+	btns = append(btns, tint(tg.Button.Data(boldFont("Language"), "lang:help")))
 
 	kb := tg.NewKeyboard()
 	kb.NewColumn(helpCols, btns...)
-	kb.AddRow(tg.Button.Data(F(chatID, "BACK_BTN"), "start"))
+	kb.AddRow(tint(tg.Button.Data(F(chatID, "BACK_BTN"), "start")))
 	return kb.Build()
 }
 
@@ -269,9 +297,10 @@ func showHelpGroup(c *tg.CallbackQuery, id string) error {
 		return showHelpMain(c)
 	}
 	chatID := c.ChannelID()
+	tint := core.NewTinter()
 	back := tg.NewKeyboard().AddRow(
-		tg.Button.Data(F(chatID, "BACK_BTN"), "help:main"),
-		tg.Button.Data(boldFont("Close"), "close"),
+		tint(tg.Button.Data(F(chatID, "BACK_BTN"), "help:main")),
+		tint(tg.Button.Data(boldFont("Close"), "close")),
 	).Build()
 	helpEdit(c, helpGroupText(g), &tg.SendOptions{ReplyMarkup: back})
 	return tg.ErrEndGroup
