@@ -10,7 +10,7 @@ CLOSE_BTN: "Close"
 DOWNLOAD_CANCEL_BTN: "🚦 Cancel Downloading"
 GC_HELP_BTN: "𝐇𝐞𝐥𝐩"
 
-START_HELP_BTN: "𝐇𝐞𝐥𝐩"
+START_HELP_BTN: "𝐇𝐞𝐥𝐩 + 𝐂𝐨𝐦𝐦𝐚𝐧𝐝𝐬"
 
 UPDATES_BTN: "𝐔𝐩𝐝𝐚𝐭𝐞𝐬"
 START_LANG_BTN: "𝐋𝐚𝐧𝐠𝐮𝐚𝐠𝐞"
@@ -370,6 +370,8 @@ logger_bot_started: |
   <b>ID:</b> {user_id}
   
 
+logger_playback_autoplay: "Autoplay Started"
+logger_autoplay_template: "<b>🎧 Track:</b> <a href=\"{track_url}\">{track}</a>\n<b>🔗 Source:</b> {source}\n<b>📌 Group:</b> {group} ({group_id})\n<b>👤 Requested by:</b> ᴀᴜᴛᴏᴘʟᴀʏ"
 logger_playback_template: "<b>🎧 Track:</b> <a href=\"{track_url}\">{track}</a>\n<b>🔗 Source:</b> {source}\n<b>📌 Group:</b> {group} ({group_id})\n<b>👤 Requested by:</b> {requested_by} (<code>{requested_by_id}</code>)"
 
 loop_usage: "🔁 <b>Loop Control</b>\n\nUsage: {cmd} [count]\n• 0 - Disable loop\n• 1-10 - Loop count\n\n<i>{count_line}</i>"
@@ -907,10 +909,11 @@ stream_download_fail: "❌ Failed to download.\nError: <code>{error}</code>"
 stream_download_skipped: "⚠️ Couldn't play <b>{title}</b>, so I skipped it.\n<code>{error}</code>"
 stream_play_fail: "❌ Failed to play the song."
 stream_now_playing: |
-  💮 ɴᴏᴡ ᴘʟᴀʏɪɴɢ ♡
-  ♫ ᴛʀᴀᴄᴋ: <a href="{url}">{title}</a>
-  ⏳ ᴅᴜʀᴀᴛɪᴏɴ: {duration}
-  ♡ ʀᴇǫᴜᴇꜱᴛᴇᴅ ʙʏ: {by}
+  ❖  𝛅ᴛᴧʀᴛєᴅ  𝛅ᴛʀєᴧϻɪηɢ  
+
+  ❍ тɪᴛʟє : <a href="{url}">{title}</a>
+  ❍ ᴅᴜʀᴧᴛɪση : {duration} ϻɪηᴜᴛєs
+  ❍ ʙʏ : {by}
 
 
 # 👑 Sudo / Owner Join Messages
