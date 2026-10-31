@@ -79,8 +79,9 @@ func streamEndHandler(
 	t := r.NextTrack()
 
 	var (
-		statusMsg *telegram.NewMessage
-		filePath  string
+		statusMsg     *telegram.NewMessage
+		filePath      string
+		autoplayTries int
 	)
 
 	// Download the next song. If it cannot be downloaded (after retries) tell
@@ -134,6 +135,12 @@ func streamEndHandler(
 
 		r.SetLoop(0)
 		wasLooping = false
+		// An autoplay song that cannot be downloaded must not end the music:
+		// look for another related song (a few times at most).
+		if len(r.Queue()) == 0 && t.Requester == autoplayRequester && autoplayTries < 5 {
+			autoplayTries++
+			autoplayQueueIfEmpty(r)
+		}
 		if len(r.Queue()) == 0 {
 			finishQueue(chatID, cid)
 			return
