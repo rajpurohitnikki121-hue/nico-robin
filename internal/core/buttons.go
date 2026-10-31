@@ -19,6 +19,7 @@ package core
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -57,13 +58,24 @@ func NewTinter() func(tg.KeyboardButton) tg.KeyboardButton {
 	return func(b tg.KeyboardButton) tg.KeyboardButton {
 		if !config.DisableColour {
 			if i%2 == 0 {
-				b.Primary()
+				colourBtn(b, "Primary")
 			} else {
-				b.Success()
+				colourBtn(b, "Success")
 			}
 		}
 		i++
 		return b
+	}
+}
+
+// colourBtn calls the Primary/Success method of the concrete button behind
+// the tg.KeyboardButton interface (the interface itself does not list it).
+func colourBtn(b tg.KeyboardButton, method string) {
+	if b == nil {
+		return
+	}
+	if m := reflect.ValueOf(b).MethodByName(method); m.IsValid() && m.Type().NumIn() == 0 {
+		m.Call(nil)
 	}
 }
 
