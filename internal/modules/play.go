@@ -183,6 +183,17 @@ func handlePlay(m *tg.NewMessage, opts *playOpts) error {
 		return tg.ErrEndGroup
 	}
 
+	// Handle one /play per voice chat at a time, in the order the requests
+	// arrived: every song gets its place in the queue and nothing is lost or
+	// reordered when many people send /play together.
+	unlock := lockPlay(room.ID)
+	defer unlock()
+
+	// The room may have been stopped while this request was waiting.
+	if fresh, ferr := getEffectiveRoom(m, opts.CPlay); ferr == nil {
+		room = fresh
+	}
+
 	tracks, isActive, err := fetchTracksAndCheckStatus(m, searchMsg, room, opts.Video)
 	if err != nil {
 		return tg.ErrEndGroup
@@ -507,13 +518,12 @@ func downloadFirstTrack(
 		opt,
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	downloadCancels[chatID] = cancel
+	// The timeout makes sure a stuck download cannot block the next requests.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	setDownloadCancel(chatID, cancel)
 	defer func() {
-		if _, ok := downloadCancels[chatID]; ok {
-			delete(downloadCancels, chatID)
-			cancel()
-		}
+		clearDownloadCancel(chatID)
+		cancel()
 	}()
 
 	path, err := safeDownload(ctx, track, replyMsg, chatID)
@@ -601,13 +611,13 @@ func buildNowPlayingReply(
 		ReplyMarkup: core.GetPlayMarkup(chatID, r, false),
 	}
 	if track.Artwork != "" && shouldShowThumb(chatID) {
-		opt.Media = utils.CleanURL(track.Artwork)
+		opt.Media = thumbMedia(track)
 	}
 
 	msg := F(chatID, "stream_now_playing", locales.Arg{
 		"url":      track.URL,
 		"title":    title,
-		"duration": utils.FormatDuration(track.Duration),
+		"duration": utils.FormatTime(track.Duration),
 		"by":       mention,
 	})
 	return msg, opt
@@ -855,5 +865,5 @@ func safeDownload(
 		}
 	}()
 
-	return platforms.Download(ctx, track, replyMsg)
+	return downloadWithRetry(ctx, track, replyMsg)
 }
