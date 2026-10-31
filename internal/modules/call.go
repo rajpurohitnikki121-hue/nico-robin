@@ -25,7 +25,6 @@ import (
 	"github.com/amarnathcjd/gogram/telegram"
 
 	"main/internal/core"
-	state "main/internal/core/models"
 	"main/internal/locales"
 	"main/internal/utils"
 	"main/ntgcalls"
@@ -67,10 +66,8 @@ func streamEndHandler(
 
 	// Autoplay: when the queue has run out, queue a related song so the normal
 	// "play next" flow below continues the music.
-	if len(r.Queue()) == 0 && r.Loop() == 0 {
-		if next := autoplayNext(r); next != nil {
-			r.AddTracksToQueue([]*state.Track{next})
-		}
+	if r.Loop() == 0 {
+		autoplayQueueIfEmpty(r)
 	}
 
 	if len(r.Queue()) == 0 && r.Loop() == 0 {
@@ -167,7 +164,7 @@ func streamEndHandler(
 	msgText := F(cid, "stream_now_playing", locales.Arg{
 		"url":      t.URL,
 		"title":    safeTitle,
-		"duration": utils.FormatDuration(t.Duration),
+		"duration": utils.FormatTime(t.Duration),
 		"by":       t.Requester,
 	})
 
@@ -177,11 +174,12 @@ func streamEndHandler(
 	}
 
 	if t.Artwork != "" && shouldShowThumb(chatID) {
-		opt.Media = utils.CleanURL(t.Artwork)
+		opt.Media = thumbMedia(t)
 	}
 
 	statusMsg, _ = utils.EOR(statusMsg, msgText, opt)
 	r.SetStatusMsg(statusMsg)
+	notifyAutoplayStart(cid, t)
 }
 
 // finishQueue ends the session when there is nothing left to play.
