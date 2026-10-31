@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os/exec"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode"
 
@@ -71,30 +72,61 @@ func RelatedTrack(
 		return &cp
 	}
 
-	// 1) the YouTube Mix (radio) of the song
-	mix, mixErr := fetchRelatedMix(videoID, 25)
-	if next := pick(mix); next != nil {
-		return next, nil
-	}
-	if mixErr != nil {
-		gologging.WarnF("[autoplay] mix failed (%v), trying yt-dlp", mixErr)
-	}
-
-	// 2) the same Mix read through yt-dlp
-	if list, err := ytdlpMix(videoID); err == nil {
-		if next := pick(list); next != nil {
+	var mixErr error
+	if time.Now().Unix() >= mixDownUntil.Load() {
+		// 1) the YouTube Mix (radio) of the song
+		var mix []*state.Track
+		mix, mixErr = fetchRelatedMix(videoID, 25)
+		if next := pick(mix); next != nil {
 			return next, nil
 		}
-	} else {
-		gologging.WarnF("[autoplay] yt-dlp mix failed (%v), using search", err)
+		if mixErr != nil {
+			gologging.WarnF("[autoplay] mix failed (%v), trying yt-dlp", mixErr)
+
+			// 2) the same Mix read through yt-dlp
+			list, err := ytdlpMix(videoID)
+			if err == nil {
+				if next := pick(list); next != nil {
+					return next, nil
+				}
+			} else {
+				// Both are blocked: go straight to search for a while, so
+				// every song change is not delayed by two failing calls.
+				gologging.WarnF("[autoplay] yt-dlp mix failed (%v), using search", err)
+				mixDownUntil.Store(time.Now().Add(6 * time.Hour).Unix())
+			}
+		}
 	}
 
-	// 3) a search for similar songs
-	for _, q := range []string{
+	// 3) searches for similar songs, from specific to general, so autoplay does
+	// not run dry after a few songs
+	queries := []string{
 		"songs like " + baseName,
 		baseName + " similar songs",
-	} {
+		"songs similar to " + baseName + " playlist",
+		"best songs like " + baseName + " hindi",
+		"new hindi songs",
+		"top hindi songs",
+		"romantic hindi songs",
+		"sad hindi songs",
+		"latest punjabi songs",
+		"trending songs",
+	}
+	for _, q := range queries {
 		if res, err := yt.VideoSearch(q); err == nil {
+			if next := pick(res); next != nil {
+				return next, nil
+			}
+		}
+	}
+
+	// Last resort: everything was already played, so allow songs again (but not
+	// the one that just played).
+	if len(skip) > 0 {
+		for k := range skip {
+			delete(skip, k)
+		}
+		if res, err := yt.VideoSearch("songs like " + baseName); err == nil {
 			if next := pick(res); next != nil {
 				return next, nil
 			}
@@ -105,6 +137,16 @@ func RelatedTrack(
 		return nil, fmt.Errorf("mix failed: %w", mixErr)
 	}
 	return nil, errors.New("no related track found")
+}
+
+// mixDownUntil (unix seconds): until then the Mix is not tried at all. YouTube
+// currently refuses it from the server (403), so it starts switched off for a
+// few hours after every start and each failure switches it off again; autoplay
+// then goes straight to search instead of waiting for two failing calls.
+var mixDownUntil atomic.Int64
+
+func init() {
+	mixDownUntil.Store(time.Now().Add(3 * time.Hour).Unix())
 }
 
 var noiseWords = map[string]bool{
@@ -145,7 +187,7 @@ func sameSong(a, b string) bool {
 
 // ytdlpMix reads the "RD<videoId>" Mix with yt-dlp (flat, no downloads).
 func ytdlpMix(videoID string) ([]*state.Track, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
 	defer cancel()
 
 	out, err := exec.CommandContext(ctx, "yt-dlp",
