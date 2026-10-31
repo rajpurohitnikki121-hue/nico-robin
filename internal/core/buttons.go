@@ -20,6 +20,7 @@ package core
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tg "github.com/amarnathcjd/gogram/telegram"
 
@@ -29,6 +30,61 @@ import (
 )
 
 var F func(chatID int64, key string, values ...locales.Arg) string // overwritten from main.go
+
+// Set from the modules package: they tell the player keyboard whether autoplay
+// and thumbnails are switched on in a chat.
+var (
+	AutoplayOn func(chatID int64) bool
+	ThumbOn    func(chatID int64) bool
+)
+
+func flagOn(f func(int64) bool, chatID int64, def bool) bool {
+	if f == nil {
+		return def
+	}
+	return f(chatID)
+}
+
+// colourSwapEvery is how often the blue/green colours swap places. The player
+// keyboard is refreshed every few seconds, so the colours visibly change.
+const colourSwapEvery = 8 // seconds
+
+// NewTinter returns a function that colours buttons one after another,
+// alternating blue and green. The order flips every few seconds, so the colours
+// change places over time. Colours are skipped when DISABLE_COLOUR is set.
+func NewTinter() func(tg.KeyboardButton) tg.KeyboardButton {
+	i := int(time.Now().Unix()/colourSwapEvery) % 2
+	return func(b tg.KeyboardButton) tg.KeyboardButton {
+		if !config.DisableColour {
+			if i%2 == 0 {
+				b.Primary()
+			} else {
+				b.Success()
+			}
+		}
+		i++
+		return b
+	}
+}
+
+// boldText writes ASCII letters and digits in the mathematical bold font used
+// on the bot's buttons.
+func boldText(s string) string {
+	var sb strings.Builder
+	for _, r := range s {
+		switch {
+		case r >= 'A' && r <= 'Z':
+			sb.WriteRune(0x1D400 + (r - 'A'))
+		case r >= 'a' && r <= 'z':
+			sb.WriteRune(0x1D41A + (r - 'a'))
+		case r >= '0' && r <= '9':
+			sb.WriteRune(0x1D7CE + (r - '0'))
+		default:
+			sb.WriteRune(r)
+		}
+	}
+	return sb.String()
+}
 
 func styleBtn(text, cb, colour string) tg.KeyboardButton {
 	b := tg.Button.Data(text, cb)
@@ -50,20 +106,22 @@ func styleBtn(text, cb, colour string) tg.KeyboardButton {
 }
 
 func AddMeMarkup(chatID int64) tg.ReplyMarkup {
+	tint := NewTinter()
 	return tg.NewKeyboard().
 		AddRow(
-			tg.Button.URL(
+			tint(tg.Button.URL(
 				F(chatID, "ADD_ME_BTN"),
 				"https://t.me/"+Bot.Me().Username+"?startgroup&admin=invite_users",
-			),
+			)),
 		).
 		Build()
 }
 
 func GetCancelKeyboard(chatID int64) *tg.ReplyInlineMarkup {
+	tint := NewTinter()
 	return tg.NewKeyboard().
 		AddRow(
-			tg.Button.Data(F(chatID, "DOWNLOAD_CANCEL_BTN"), "cancel"),
+			tint(tg.Button.Data(F(chatID, "DOWNLOAD_CANCEL_BTN"), "cancel")),
 		).
 		Build()
 }
@@ -125,26 +183,38 @@ func GetPlayMarkup(chatID int64, r *RoomState, queued bool) tg.ReplyMarkup {
 		duration,
 	)
 
+	tint := NewTinter()
+
 	if !queued {
 		btn.AddRow(
-			tg.Button.Data(progress, "progress"),
+			tint(tg.Button.Data(progress, "progress")),
 		)
 	}
 	btn.AddRow(
-		tg.Button.Data("▷", prefix+"resume"),
-		tg.Button.Data("II", prefix+"pause"),
-		tg.Button.Data("‣‣I", prefix+"skip"),
-		tg.Button.Data("▢", prefix+"stop"),
+		tint(tg.Button.Data("▷", prefix+"resume")),
+		tint(tg.Button.Data("II", prefix+"pause")),
+		tint(tg.Button.Data("‣‣I", prefix+"skip")),
+		tint(tg.Button.Data("▢", prefix+"stop")),
+	)
+
+	thumbText := "Thumb OFF"
+	if flagOn(ThumbOn, chatID, true) {
+		thumbText = "Thumb ON"
+	}
+	autoText := "Autoplay OFF"
+	if flagOn(AutoplayOn, chatID, false) {
+		autoText = "Autoplay ON"
+	}
+
+	btn.AddRow(
+		tint(tg.Button.Data("↩ 15s", prefix+"seekback_15")),
+		tint(tg.Button.Data(boldText(thumbText), prefix+"thumb")),
+		tint(tg.Button.Data("15s ↪", prefix+"seek_15")),
 	)
 
 	btn.AddRow(
-		tg.Button.Data("↩ 15s", prefix+"seekback_15"),
-		tg.Button.Data("𝐀𝐮𝐭𝐨", prefix+"autoplay"),
-		tg.Button.Data("15s ↪", prefix+"seek_15"),
-	)
-
-	btn.AddRow(
-		tg.Button.Data(F(chatID, "CLOSE_BTN"), "close"),
+		tint(tg.Button.Data(boldText(autoText), prefix+"autoplay")),
+		tint(tg.Button.Data(F(chatID, "CLOSE_BTN"), "close")),
 	)
 
 	return btn.Build()
@@ -157,17 +227,19 @@ const playNowBtnText = "▶ 𝐏𝐥𝐚𝐲 𝐍𝐨𝐰"
 // seq comes from RegisterQueueTrack and is resolved again in the room callback
 // handler (action "pn<seq>").
 func GetQueueMarkup(r *RoomState, seq uint64) tg.ReplyMarkup {
+	tint := NewTinter()
 	return tg.NewKeyboard().
 		AddRow(
-			tg.Button.Data(playNowBtnText, fmt.Sprintf("room:%d:pn%d", r.ID, seq)),
+			tint(tg.Button.Data(playNowBtnText, fmt.Sprintf("room:%d:pn%d", r.ID, seq))),
 		).
 		Build()
 }
 
 func GetGroupHelpKeyboard(chatID int64) *tg.ReplyInlineMarkup {
+	tint := NewTinter()
 	return tg.NewKeyboard().
 		AddRow(
-			tg.Button.URL(F(chatID, "GC_HELP_BTN"), "https://t.me/"+Bot.Me().Username+"?start=pm_help"),
+			tint(tg.Button.URL(F(chatID, "GC_HELP_BTN"), "https://t.me/"+Bot.Me().Username+"?start=pm_help")),
 		).
 		Build()
 }
@@ -208,29 +280,23 @@ const startAddBtnText = "⛩ 𝐊𝐢𝐝𝐧𝐚𝐩 𝐌𝐞 𝐁𝐚𝐛𝐲 
 // When the owner button is not available (see ownerProfileLink) Language is
 // shown alone on the last row.
 func GetStartMarkup(chatID int64) tg.ReplyMarkup {
-	addBtn := tg.Button.URL(
+	// Blue and green buttons, one after another; the colours swap every few
+	// seconds (see NewTinter).
+	tint := NewTinter()
+
+	addBtn := tint(tg.Button.URL(
 		startAddBtnText,
 		"https://t.me/"+Bot.Me().Username+"?startgroup&admin=invite_users",
-	)
-	if !config.DisableColour {
-		addBtn.Primary()
-	}
+	))
+	help := tint(tg.Button.Data(F(chatID, "START_HELP_BTN"), "help_cb"))
+	updates := tint(tg.Button.URL(F(chatID, "UPDATES_BTN"), config.SupportChannel))
+	support := tint(tg.Button.URL(F(chatID, "SUPPORT_BTN"), config.SupportChat))
 
-	updates := tg.Button.URL(F(chatID, "UPDATES_BTN"), config.SupportChannel)
-	support := tg.Button.URL(F(chatID, "SUPPORT_BTN"), config.SupportChat)
-	help := tg.Button.Data(F(chatID, "START_HELP_BTN"), "help_cb")
-	lang := tg.Button.Data(F(chatID, "START_LANG_BTN"), "lang:start")
-
-	kb := tg.NewKeyboard().
-		AddRow(addBtn).
-		AddRow(help).
-		AddRow(updates, support)
-
+	kb := tg.NewKeyboard().AddRow(addBtn)
 	if link := ownerProfileLink(); link != "" {
-		kb = kb.AddRow(lang, tg.Button.URL(ownerBtnText, link))
-	} else {
-		kb = kb.AddRow(lang)
+		kb = kb.AddRow(tint(tg.Button.URL(ownerBtnText, link)))
 	}
+	kb = kb.AddRow(updates, support).AddRow(help)
 
 	return kb.Build()
 }
@@ -266,7 +332,7 @@ func GetHelpKeyboard(chatID int64) *tg.ReplyInlineMarkup {
 func GetBackKeyboard(chatID int64) *tg.ReplyInlineMarkup {
 	return tg.NewKeyboard().
 		AddRow(
-			styleBtn(F(chatID, "BACK_BTN"), "help:main", "blue"),
+			NewTinter()(tg.Button.Data(F(chatID, "BACK_BTN"), "help:main")),
 		).
 		Build()
 }
