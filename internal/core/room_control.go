@@ -56,6 +56,8 @@ func (r *RoomState) Play(t *state.Track, path string, force ...bool) error {
 		return nil
 	}
 
+	wasPlaying := r.playing && r.track != nil
+
 	if r.track != t {
 		r.loop = 0
 	}
@@ -67,6 +69,16 @@ func (r *RoomState) Play(t *state.Track, path string, force ...bool) error {
 	r.muted = false
 	r.updatedAt = time.Now().Unix()
 	r.mu.Unlock()
+
+	// A fresh start with a call that is still registered means the assistant
+	// is no longer really in the voice chat (it was removed, or the chat was
+	// closed). Setting new sources on that dead call would "succeed" without
+	// joining, so drop it first and let play() connect again.
+	if !wasPlaying && r.Assistant != nil && r.Assistant.Ntg != nil {
+		if r.Assistant.Ntg.Calls()[r.ID] != nil {
+			_ = r.Assistant.Ntg.Stop(r.ID)
+		}
+	}
 
 	err := r.play()
 	if err != nil {
