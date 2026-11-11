@@ -111,7 +111,7 @@ var handlers = []MsgHandlerDef{
 	{
 		Pattern: "(broadcast|gcast|bcast)",
 		Handler: broadcastHandler,
-		Filters: []telegram.Filter{ownerFilter, ignoreChannelFilter},
+		Filters: []telegram.Filter{sudoOnlyFilter, ignoreChannelFilter},
 	},
 
 	{
