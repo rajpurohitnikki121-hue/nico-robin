@@ -55,6 +55,7 @@ var (
 	CookiesLink         string
 	SetCmds             bool
 	MaxAuthUsers        int
+	DBName              string
 	StartImages         []string
 	EffectIDs           []int64
 	PingImage           string
@@ -111,6 +112,7 @@ func loadConfig() {
 	Token = getString("TOKEN", getString("BOT_TOKEN", ""))
 	LoggerID = getInt64("LOGGER_ID", getInt64("LOG_GROUP_ID", 0))
 	MongoURI = getString("MONGO_DB_URI", "")
+	DBName = getString("DB_NAME", "YukkiMusic")
 	SessionType = getString("SESSION_TYPE", "pyrogram")
 	StringSessions = getStringSlice(
 		"STRING_SESSIONS",
@@ -131,7 +133,7 @@ func loadConfig() {
 	SupportChannel = getString("SUPPORT_CHANNEL", "https://t.me/TheTeamVivek")
 	CookiesLink = getString("COOKIES_LINK", "")
 	SetCmds = getBool("SET_CMDS", false)
-	MaxAuthUsers = int(getInt64("MAX_AUTH_USERS", 25))
+	MaxAuthUsers = int(getInt64("MAX_AUTH_USERS", 0))
 	StartImages = getStringSlice("START_IMAGES", nil)
 	EffectIDs = getInt64Slice("EFFECT_IDS", nil)
 	if len(StartImages) == 0 {
