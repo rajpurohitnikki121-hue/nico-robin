@@ -291,7 +291,28 @@ func (p *YouTubePlatform) extractVideoID(u string) string {
 	return ""
 }
 
+// performSearch searches YouTube. When the "videos only" search finds nothing
+// (typos, unusual spellings), it tries again without that filter and then with
+// " song" added, so such queries still find a result.
 func (p *YouTubePlatform) performSearch(query string, limit int) ([]*state.Track, error) {
+	tracks, err := p.searchOnce(query, "CAASAhAB", limit)
+	if err == nil && len(tracks) > 0 {
+		return tracks, nil
+	}
+
+	for _, attempt := range []struct{ q, params string }{
+		{query, ""},
+		{query + " song", ""},
+		{query + " song", "CAASAhAB"},
+	} {
+		if t, e := p.searchOnce(attempt.q, attempt.params, limit); e == nil && len(t) > 0 {
+			return t, nil
+		}
+	}
+	return tracks, err
+}
+
+func (p *YouTubePlatform) searchOnce(query, params string, limit int) ([]*state.Track, error) {
 	gologging.DebugF("[YouTube] Searching: %s", query)
 	var result map[string]any
 
@@ -304,8 +325,10 @@ func (p *YouTubePlatform) performSearch(query string, limit int) ([]*state.Track
 				"gl":            "IN",
 			},
 		},
-		"query":  query,
-		"params": "CAASAhAB",
+		"query": query,
+	}
+	if params != "" {
+		payload["params"] = params
 	}
 
 	err := p.callInnerTube("search", payload, &result)
