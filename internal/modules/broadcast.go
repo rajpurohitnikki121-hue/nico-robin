@@ -30,7 +30,6 @@ import (
 	"github.com/Laky-64/gologging"
 	tg "github.com/amarnathcjd/gogram/telegram"
 
-	"main/internal/config"
 	"main/internal/core"
 	"main/internal/database"
 	"main/internal/locales"
@@ -684,7 +683,7 @@ func handleBroadcastCancel(m *tg.NewMessage) error {
 }
 
 func broadcastCancelCB(cb *tg.CallbackQuery) error {
-	if cb.SenderID != config.OwnerID {
+	if !isOwnerOrSudo(cb.SenderID) {
 		cb.Answer(
 			F(cb.ChannelID(), "broadcast_cancel_owner_only"),
 			&tg.CallbackOptions{Alert: true},
