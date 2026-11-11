@@ -42,11 +42,11 @@ func init() {
 • Only <b>chat admins</b> can use this command.  
 • Auth users can control playback with commands like <code>/pause</code>, <code>/resume</code>, <code>/skip</code>, <code>/seek</code>, <code>/mute</code>, etc.  
 • 🤖 Bots cannot be added as auth users.  
-• 🔢 You can have up to <b>%d</b> auth users per chat.  
+• 🔢 Auth users per chat: <b>%s</b>.  
 • 👑 The <b>Bot Owner</b>, <b>Assistant</b>, and all <b>Sudoers</b> are <b>already authorized by default</b> — they do not appear in the list and cannot be removed.
 
 For related commands, see <code>/delauth</code> and <code>/authlist</code>.`,
-		config.MaxAuthUsers,
+		authLimitText(),
 	)
 
 	helpTexts["/delauth"] = `<i>Revoke permission from a user who was previously authorized to control playback.</i>
@@ -78,7 +78,7 @@ func addAuthHandler(m *telegram.NewMessage) error {
 		return telegram.ErrEndGroup
 	}
 
-	if au, _ := database.AuthorizedUsers(chatID); len(
+	if au, _ := database.AuthorizedUsers(chatID); config.MaxAuthUsers > 0 && len(
 		au,
 	) >= config.MaxAuthUsers {
 		m.Reply(F(chatID, "auth_limit_reached", locales.Arg{
@@ -141,7 +141,7 @@ func addAuthHandler(m *telegram.NewMessage) error {
 		m.Reply(F(chatID, "addauth_success_with_count", locales.Arg{
 			"user":  uname,
 			"count": len(au),
-			"limit": config.MaxAuthUsers,
+			"limit": authLimitText(),
 		}))
 	} else {
 		m.Reply(F(chatID, "addauth_success", locales.Arg{
@@ -252,4 +252,12 @@ func authListHandler(m *telegram.NewMessage) error {
 
 	utils.EOR(statusMsg, sb.String())
 	return telegram.ErrEndGroup
+}
+
+// authLimitText is the auth user limit for messages ("unlimited" when 0).
+func authLimitText() string {
+	if config.MaxAuthUsers <= 0 {
+		return "unlimited"
+	}
+	return strconv.Itoa(config.MaxAuthUsers)
 }
