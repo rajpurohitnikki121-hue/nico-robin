@@ -60,8 +60,8 @@ cannot_authorize_user: "⚠️ This user cannot be authorized.\nThe bot owner, t
 addauth_user_is_admin: "⚠️ This user is already a chat administrator. No authorization is required."
 addauth_bot_user: "🤖 You can’t add a bot to the auth list — authusers must be human!"
 addauth_add_fail: "❌ Failed to add authorized user: {error}"
-addauth_success_with_count: "✅ Added {user}.\nNow {count}/{limit} authorized users."
-addauth_success: "✅ Successfully added {user} to the authorized users list."
+addauth_success_with_count: "ᴀᴅᴅᴇᴅ {user} ᴛᴏ ᴛʜᴇ ᴀᴜᴛʜᴏʀɪᴢᴇᴅ ᴜꜱᴇʀꜱ ʟɪꜱᴛ."
+addauth_success: "ᴀᴅᴅᴇᴅ {user} ᴛᴏ ᴛʜᴇ ᴀᴜᴛʜᴏʀɪᴢᴇᴅ ᴜꜱᴇʀꜱ ʟɪꜱᴛ."
 
 # 🤖 Bot Added to Chat
 bot_added_normal: "🎵 Thanks for adding me! Use /play [song] to start playing music."
