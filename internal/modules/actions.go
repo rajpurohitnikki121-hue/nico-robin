@@ -25,7 +25,6 @@ import (
 	"main/internal/config"
 	"main/internal/core"
 	"main/internal/database"
-	"main/internal/locales"
 	"main/internal/utils"
 )
 
@@ -113,9 +112,8 @@ func handleVoiceChatAction(m *telegram.NewMessage, action *telegram.MessageActio
 
 	s.SetVoiceChatActive(isActive)
 
-	msgKey := utils.IfElse(isActive, "voicechat_started", "voicechat_ended")
-	m.Respond(F(chatID, msgKey, locales.Arg{"duration": utils.FormatDuration(int(action.Duration))}))
-	gologging.DebugF("Voice chat %s in %d", msgKey, chatID)
+	// No "voice chat started/ended" message is sent on purpose.
+	gologging.DebugF("Voice chat active=%v in %d", isActive, chatID)
 
 	if !isActive {
 		room, ok := core.GetRoom(chatID, nil, false)
