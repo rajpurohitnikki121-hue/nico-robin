@@ -99,6 +99,13 @@ var helpGroups = []helpGroup{
 		},
 	},
 	{
+		id: "game", label: "Game",
+		about: "Word Scramble: unscramble a movie name, then a song from that movie. Each part has 30 seconds and 3 hints. Hint 1 shows by itself; Hint 2 (first letter) and Hint 3 (first, middle and last letters) open with buttons. It works in groups and in DM.",
+		lines: []helpLine{
+			{"/wordgame", "Start a Movie + Song game."},
+		},
+	},
+	{
 		id: "ctrl", label: "Controls",
 		about: "Control the song that is playing. " + helpChannelNote,
 		lines: []helpLine{
