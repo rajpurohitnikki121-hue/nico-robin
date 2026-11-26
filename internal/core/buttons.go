@@ -282,6 +282,10 @@ func ownerProfileLink() string {
 // startAddBtnText is the label of the big "add me to a group" button on /start.
 const startAddBtnText = "⛩ 𝐊𝐢𝐝𝐧𝐚𝐩 𝐌𝐞 𝐁𝐚𝐛𝐲 ⛩"
 
+// startGameBtnText is the label of the Game button on /start; it opens the
+// Game page of the help menu.
+const startGameBtnText = "🎮 𝐆𝐚𝐦𝐞"
+
 // GetStartMarkup builds the /start keyboard:
 //
 //	[   ⛩ Kidnap Me Baby ⛩   ]
@@ -308,7 +312,8 @@ func GetStartMarkup(chatID int64) tg.ReplyMarkup {
 	if link := ownerProfileLink(); link != "" {
 		kb = kb.AddRow(tint(tg.Button.URL(ownerBtnText, link)))
 	}
-	kb = kb.AddRow(updates, support).AddRow(help)
+	game := tint(tg.Button.Data(startGameBtnText, "help:g:game"))
+	kb = kb.AddRow(updates, support).AddRow(help, game)
 
 	return kb.Build()
 }
