@@ -152,7 +152,28 @@ type wordGame struct {
 var (
 	wgMu    sync.Mutex
 	wgGames = map[int64]*wordGame{}
+	// wgUsed remembers which entries each chat already had, so nothing
+	// repeats until all of them were played once.
+	wgUsed = map[int64]map[int]bool{}
 )
+
+// wgPick returns an entry this chat has not seen yet. Caller holds wgMu.
+func wgPick(chatID int64) wgEntry {
+	used := wgUsed[chatID]
+	if used == nil || len(used) >= len(wgData) {
+		used = map[int]bool{}
+		wgUsed[chatID] = used
+	}
+	var free []int
+	for i := range wgData {
+		if !used[i] {
+			free = append(free, i)
+		}
+	}
+	i := free[rand.Intn(len(free))]
+	used[i] = true
+	return wgData[i]
+}
 
 func init() {
 	helpTexts["/wordgame"] = `<i>Word Scramble: guess the movie first, then a song from that movie.</i>
@@ -363,7 +384,7 @@ func wordGameHandler(m *tg.NewMessage) error {
 	g := &wordGame{
 		chatID:  chatID,
 		starter: m.SenderID(),
-		entry:   wgData[rand.Intn(len(wgData))],
+		entry:   wgPick(chatID),
 		stage:   1,
 	}
 	wgGames[chatID] = g
@@ -478,7 +499,7 @@ func wordGuessHandler(m *tg.NewMessage) error {
 		return nil
 	}
 
-	done += "\n\nPlay again: /wordgame  •  Top players: /leaderboard"
+	done += "\n\nPlay again: /wordgame\n•  Top players: /leaderboard"
 	if _, err := oldMsg.Edit(done, &tg.SendOptions{}); err != nil {
 		m.Reply(done)
 	}
@@ -577,8 +598,6 @@ func leaderboardHandler(m *tg.NewMessage) error {
 			sb.WriteString("\n")
 		}
 	}
-	sb.WriteString("\n<i>Ranks: Noob ➤ Rookie ➤ Skilled ➤ Pro ➤ Elite ➤ Legend ➤ Conqueror</i>")
-	sb.WriteString("\n<i>Faster answers and fewer hints give more points.</i>")
 	m.Reply(sb.String())
 	return tg.ErrEndGroup
 }
