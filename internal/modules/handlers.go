@@ -485,6 +485,16 @@ var handlers = []MsgHandlerDef{
 		Filters: []telegram.Filter{ignoreChannelFilter},
 	},
 	{
+		Pattern: "(leaderboard|lb|gametop)",
+		Handler: leaderboardHandler,
+		Filters: []telegram.Filter{ignoreChannelFilter},
+	},
+	{
+		Pattern: "(endgame|stopgame)",
+		Handler: wordGameEndHandler,
+		Filters: []telegram.Filter{ignoreChannelFilter},
+	},
+	{
 		Pattern: "privacy",
 		Handler: privacyHandler,
 		Filters: []telegram.Filter{ignoreChannelFilter},
@@ -531,7 +541,7 @@ var cbHandlers = []CbHandlerDef{
 	{Pattern: "^rtmp_stop$", Handler: rtmpStopCallbackHandler},
 
 	{Pattern: `^room:-?\d+:\w+$`, Handler: roomHandle},
-	{Pattern: "^wg:h[23]$", Handler: wordHintCallback},
+	{Pattern: "^wg:hint$", Handler: wordHintCallback},
 	{Pattern: "progress", Handler: emptyCBHandler},
 	{Pattern: "^(set|info):", Handler: settingsCallbackHandler},
 }
