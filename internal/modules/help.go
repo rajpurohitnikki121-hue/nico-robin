@@ -100,9 +100,11 @@ var helpGroups = []helpGroup{
 	},
 	{
 		id: "game", label: "Game",
-		about: "Word Scramble: unscramble a movie name, then a song from that movie. Each part has 30 seconds and 3 hints. Hint 1 shows by itself; Hint 2 (first letter) and Hint 3 (first, middle and last letters) open with buttons. It works in groups and in DM.",
+		about: "Word Scramble: unscramble a movie name, then a song from that movie. Each part has 30 seconds and 3 hints. Hint 1 shows by itself; one Hint button shows Hint 2 (first letter) and then Hint 3 (first, middle and last letters). It works in groups and in DM.",
 		lines: []helpLine{
 			{"/wordgame", "Start a Movie + Song game."},
+			{"/endgame", "End the running game."},
+			{"/leaderboard", "Top 8 players with their rank titles."},
 		},
 	},
 	{
