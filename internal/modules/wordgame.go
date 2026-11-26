@@ -13,6 +13,7 @@ import (
 	tg "github.com/amarnathcjd/gogram/telegram"
 
 	"main/internal/core"
+	"main/internal/database"
 	"main/internal/utils"
 )
 
@@ -135,15 +136,17 @@ var wgData = []wgEntry{
 }
 
 type wordGame struct {
-	mu     sync.Mutex
-	chatID int64
-	entry  wgEntry
-	stage  int // 1 = movie, 2 = song
-	gen    int // changes on every round, stale timers are ignored
-	h2, h3 bool
-	msg    *tg.NewMessage
-	timer  *time.Timer
-	scr    string
+	mu      sync.Mutex
+	chatID  int64
+	starter int64
+	entry   wgEntry
+	stage   int // 1 = movie, 2 = song
+	gen     int // changes on every round, stale timers are ignored
+	h2, h3  bool
+	started time.Time
+	msg     *tg.NewMessage
+	timer   *time.Timer
+	scr     string
 }
 
 var (
@@ -155,7 +158,7 @@ func init() {
 	helpTexts["/wordgame"] = `<i>Word Scramble: guess the movie first, then a song from that movie.</i>
 
 <u>Usage:</u>
-<b>/wordgame</b> — Start a new game (works in groups and in DM)
+<b>/wordgame</b> — Start a new game (works in groups and in DM)\n<b>/endgame</b> — End the running game (starter or admin)\n<b>/leaderboard</b> — Top 8 players of this chat
 
 <b>💡 Rules:</b>
 • Unscramble the movie name first, then the song
@@ -246,35 +249,35 @@ func (g *wordGame) text() string {
 	} else {
 		sb.WriteString("🎵 <b>Guess The Song</b>\n\n")
 	}
-	sb.WriteString("🔀 <code>" + html.EscapeString(g.scr) + "</code>\n\n")
+	what := "movie"
+	if g.stage == 2 {
+		what = "song"
+	}
+	sb.WriteString("❓ <b>Unscramble the " + what + " name:</b>\n")
+	sb.WriteString("👉 <code>" + html.EscapeString(g.scr) + "</code>\n")
+	sb.WriteString(fmt.Sprintf("🔤 <i>%d letters</i>\n\n", len([]rune(wgNorm(g.answer())))))
 	if g.stage == 1 {
-		sb.WriteString("💡 <b>Hint 1:</b> " + html.EscapeString(g.entry.Clue) + "\n")
+		sb.WriteString("➤ <b>Hint 1:</b> " + html.EscapeString(g.entry.Clue) + "\n")
 	} else {
-		sb.WriteString("💡 <b>Hint 1:</b> This song is from the movie <b>" + html.EscapeString(g.entry.Movie) + "</b>\n")
+		sb.WriteString("➤ <b>Hint 1:</b> This song is from the movie <b>" + html.EscapeString(g.entry.Movie) + "</b>\n")
 	}
 	if g.h2 {
-		sb.WriteString("💡 <b>Hint 2:</b> <code>" + html.EscapeString(wgMask(g.answer(), 2)) + "</code>\n")
+		sb.WriteString("➤ <b>Hint 2:</b> <code>" + html.EscapeString(wgMask(g.answer(), 2)) + "</code>\n")
 	}
 	if g.h3 {
-		sb.WriteString("💡 <b>Hint 3:</b> <code>" + html.EscapeString(wgMask(g.answer(), 3)) + "</code>\n")
+		sb.WriteString("➤ <b>Hint 3:</b> <code>" + html.EscapeString(wgMask(g.answer(), 3)) + "</code>\n")
 	}
 	sb.WriteString("\n⏱ <i>You have 30 seconds. Type your answer in the chat!</i>")
 	return sb.String()
 }
 
 func (g *wordGame) markup() *tg.ReplyInlineMarkup {
-	var btns []tg.KeyboardButton
-	if !g.h2 {
-		btns = append(btns, tg.Button.Data("💡 Hint 2", "wg:h2"))
-	}
-	if !g.h3 {
-		btns = append(btns, tg.Button.Data("💡 Hint 3", "wg:h3"))
-	}
-	if len(btns) == 0 {
+	// One Hint button: the first tap shows Hint 2, the second shows Hint 3.
+	if g.h3 {
 		return nil
 	}
 	kb := tg.NewKeyboard()
-	kb.AddRow(btns...)
+	kb.AddRow(tg.Button.Data("💡 Hint", "wg:hint"))
 	return kb.Build()
 }
 
@@ -284,6 +287,7 @@ func wgSendRound(g *wordGame) {
 	name := g.answer()
 	g.scr = wgScramble(name)
 	g.h2, g.h3 = false, false
+	g.started = time.Now()
 	g.gen++
 	gen := g.gen
 	text := g.text()
@@ -357,14 +361,55 @@ func wordGameHandler(m *tg.NewMessage) error {
 		return tg.ErrEndGroup
 	}
 	g := &wordGame{
-		chatID: chatID,
-		entry:  wgData[rand.Intn(len(wgData))],
-		stage:  1,
+		chatID:  chatID,
+		starter: m.SenderID(),
+		entry:   wgData[rand.Intn(len(wgData))],
+		stage:   1,
 	}
 	wgGames[chatID] = g
 	wgMu.Unlock()
 
 	wgSendRound(g)
+	return tg.ErrEndGroup
+}
+
+// wordGameEndHandler stops the running game. The player who started it, chat
+// admins, the bot owner and sudo users may use it (anyone in DM).
+func wordGameEndHandler(m *tg.NewMessage) error {
+	chatID := m.ChannelID()
+
+	wgMu.Lock()
+	g := wgGames[chatID]
+	wgMu.Unlock()
+	if g == nil {
+		m.Reply("ℹ️ No game is running in this chat.")
+		return tg.ErrEndGroup
+	}
+
+	if !m.IsPrivate() && m.SenderID() != g.starter && !isOwnerOrSudo(m.SenderID()) {
+		if ok, err := utils.IsChatAdmin(m.Client, chatID, m.SenderID()); err != nil || !ok {
+			m.Reply("⚠️ Only the player who started the game or an admin can end it.")
+			return tg.ErrEndGroup
+		}
+	}
+
+	g.mu.Lock()
+	g.gen++ // a late timer does nothing
+	msg := g.msg
+	g.msg = nil
+	text := "🛑 <b>Game ended.</b>\n\n🎬 Movie: <b>" + html.EscapeString(g.entry.Movie) +
+		"</b>\n🎵 Song: <b>" + html.EscapeString(g.entry.Song) +
+		"</b>\n\nPlay again: /wordgame"
+	g.mu.Unlock()
+
+	if msg != nil {
+		if _, err := msg.Edit(text, &tg.SendOptions{}); err != nil {
+			m.Reply(text)
+		}
+	} else {
+		m.Reply(text)
+	}
+	wgEnd(g)
 	return tg.ErrEndGroup
 }
 
@@ -395,6 +440,15 @@ func wordGuessHandler(m *tg.NewMessage) error {
 	g.gen++ // closes this round, a late timer does nothing
 	stage := g.stage
 	answer := g.answer()
+	points := 20
+	if g.h3 {
+		points = 10
+	} else if g.h2 {
+		points = 15
+	}
+	if left := wordGameTime - time.Since(g.started); left > 0 {
+		points += int(left.Seconds()) / 3 // speed bonus, up to +10
+	}
 	oldMsg := g.msg
 	g.msg = nil
 	g.mu.Unlock()
@@ -404,7 +458,14 @@ func wordGuessHandler(m *tg.NewMessage) error {
 	if stage == 2 {
 		kind = "🎵 Song"
 	}
-	done := fmt.Sprintf("✅ %s: <b>%s</b>\n\n🏆 %s got it right!", kind, html.EscapeString(answer), who)
+	name := strings.TrimSpace(m.Sender.FirstName + " " + m.Sender.LastName)
+	if name == "" {
+		name = "Player"
+	}
+	if err := database.AddGameScore(chatID, m.SenderID(), name, points); err != nil {
+		gologging.ErrorF("wordgame: score save failed: %v", err)
+	}
+	done := fmt.Sprintf("✅ %s: <b>%s</b>\n\n🏆 %s got it right!  <b>+%d pts</b>", kind, html.EscapeString(answer), who, points)
 
 	if stage == 1 {
 		if _, err := oldMsg.Edit(done, &tg.SendOptions{}); err != nil {
@@ -417,7 +478,7 @@ func wordGuessHandler(m *tg.NewMessage) error {
 		return nil
 	}
 
-	done += "\n\nPlay again: /wordgame"
+	done += "\n\nPlay again: /wordgame  •  Top players: /leaderboard"
 	if _, err := oldMsg.Edit(done, &tg.SendOptions{}); err != nil {
 		m.Reply(done)
 	}
@@ -445,11 +506,12 @@ func wordHintCallback(cb *tg.CallbackQuery) error {
 		cb.Answer("")
 		return tg.ErrEndGroup
 	}
-	switch data {
-	case "wg:h2":
-		g.h2 = true
-	case "wg:h3":
-		g.h3 = true
+	if data == "wg:hint" {
+		if !g.h2 {
+			g.h2 = true
+		} else {
+			g.h3 = true
+		}
 	}
 	text := g.text()
 	mk := g.markup()
@@ -464,5 +526,59 @@ func wordHintCallback(cb *tg.CallbackQuery) error {
 		gologging.ErrorF("wordgame: hint edit failed: %v", err)
 	}
 	cb.Answer("")
+	return tg.ErrEndGroup
+}
+
+// wgRank gives a BGMI-style title from the total points of a player.
+func wgRank(points int) string {
+	switch {
+	case points >= 1000:
+		return "Conqueror"
+	case points >= 600:
+		return "Legend"
+	case points >= 350:
+		return "Elite"
+	case points >= 200:
+		return "Pro"
+	case points >= 100:
+		return "Skilled"
+	case points >= 40:
+		return "Rookie"
+	}
+	return "Noob"
+}
+
+// leaderboardHandler shows the top 8 players of this chat.
+func leaderboardHandler(m *tg.NewMessage) error {
+	chatID := m.ChannelID()
+
+	top, err := database.TopGameScores(chatID, 8)
+	if err != nil {
+		gologging.ErrorF("wordgame: leaderboard failed: %v", err)
+		m.Reply("⚠️ Could not load the leaderboard right now.")
+		return tg.ErrEndGroup
+	}
+	if len(top) == 0 {
+		m.Reply("🏆 <b>Word Game Leaderboard</b>\n\nNo one has played yet. Start with /wordgame!")
+		return tg.ErrEndGroup
+	}
+
+	marks := []string{"🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣"}
+	var sb strings.Builder
+	sb.WriteString("🏆 <b>Word Game Leaderboard</b>\n\n")
+	for i, p := range top {
+		name := p.Name
+		if name == "" {
+			name = "Player"
+		}
+		fmt.Fprintf(&sb, "%s <b>%d.</b> %s <i>(%s)</i> — <b>%d</b> pts\n",
+			marks[i], i+1, html.EscapeString(name), wgRank(p.Points), p.Points)
+		if i == 2 && len(top) > 3 {
+			sb.WriteString("\n")
+		}
+	}
+	sb.WriteString("\n<i>Ranks: Noob ➤ Rookie ➤ Skilled ➤ Pro ➤ Elite ➤ Legend ➤ Conqueror</i>")
+	sb.WriteString("\n<i>Faster answers and fewer hints give more points.</i>")
+	m.Reply(sb.String())
 	return tg.ErrEndGroup
 }
