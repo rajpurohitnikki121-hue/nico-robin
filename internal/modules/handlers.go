@@ -148,7 +148,6 @@ var handlers = []MsgHandlerDef{
 	{
 		Pattern: "ping",
 		Handler: pingHandler,
-		Filters: []telegram.Filter{ignoreChannelFilter},
 	},
 	{
 		Pattern: "start",
@@ -481,6 +480,11 @@ var handlers = []MsgHandlerDef{
 		Filters: []telegram.Filter{superGroupFilter, adminFilter},
 	},
 	{
+		Pattern: "(wordgame|scramble|guess)",
+		Handler: wordGameHandler,
+		Filters: []telegram.Filter{ignoreChannelFilter},
+	},
+	{
 		Pattern: "privacy",
 		Handler: privacyHandler,
 		Filters: []telegram.Filter{ignoreChannelFilter},
@@ -527,6 +531,7 @@ var cbHandlers = []CbHandlerDef{
 	{Pattern: "^rtmp_stop$", Handler: rtmpStopCallbackHandler},
 
 	{Pattern: `^room:-?\d+:\w+$`, Handler: roomHandle},
+	{Pattern: "^wg:h[23]$", Handler: wordHintCallback},
 	{Pattern: "progress", Handler: emptyCBHandler},
 	{Pattern: "^(set|info):", Handler: settingsCallbackHandler},
 }
@@ -560,6 +565,7 @@ func Init(bot *telegram.Client, assistants *core.AssistantManager) {
 	bot.On("edit:/ev", evalCommandHandler).SetGroup(80)
 
 	bot.On("participant", handleParticipantUpdate).SetGroup(70)
+	bot.On("message", wordGuessHandler).SetGroup(110)
 	bot.AddActionHandler(handleActions)
 	bot.AddRawHandler(&telegram.UpdateReadChannelOutbox{}, cleanModeReadHandler)
 
@@ -568,6 +574,7 @@ func Init(bot *telegram.Client, assistants *core.AssistantManager) {
 	})
 
 	go MonitorRooms()
+	go loggerHeartbeat()
 
 	autoLeaveSvc.Start()
 	cleanScheduler.start()
