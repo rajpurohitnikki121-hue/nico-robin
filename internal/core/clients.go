@@ -86,11 +86,23 @@ func initBot() error {
 		return fmt.Errorf("failed to create bot client: %w", err)
 	}
 
-	if err := client.LoginBot(config.Token); err != nil {
-		if strings.Contains(err.Error(), "ACCESS_TOKEN_EXPIRED") {
+	// Telegram sometimes answers the first login with USER_MIGRATE_X (the bot
+	// lives on another data centre). The client has moved to the right DC by
+	// the time the error comes back, so trying again normally works.
+	var loginErr error
+	for attempt := 1; attempt <= 5; attempt++ {
+		loginErr = client.LoginBot(config.Token)
+		if loginErr == nil {
+			break
+		}
+		if strings.Contains(loginErr.Error(), "ACCESS_TOKEN_EXPIRED") {
 			return fmt.Errorf("bot token has been revoked or expired")
 		}
-		return fmt.Errorf("failed to start the bot: %w", err)
+		gologging.WarnF("bot login attempt %d failed: %v", attempt, loginErr)
+		time.Sleep(time.Duration(attempt) * 2 * time.Second)
+	}
+	if loginErr != nil {
+		return fmt.Errorf("failed to start the bot: %w", loginErr)
 	}
 
 	user, err := client.GetMe()
